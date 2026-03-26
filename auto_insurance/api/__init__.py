@@ -1,0 +1,1 @@
+# P2 remplira ce fichier avec les endpoints FastAPI
