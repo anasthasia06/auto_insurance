@@ -69,3 +69,13 @@ class FeatureEngineer:
         if 'prix_vehicule' in df.columns:
             df['log_prix_vehicule'] = np.log1p(df['prix_vehicule'])
         return df
+
+    def get_feature_names(self) -> list[str]:
+        """Retourne la liste des features créées."""
+        return [
+        "ratio_poids_puissance",
+        "age_obtention_permis",
+        "jeune_conducteur",
+        "duree_vie_modele",
+        "log_prix_vehicule",
+        ]

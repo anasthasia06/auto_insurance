@@ -62,22 +62,20 @@ class InsuranceModel:
     def predict_prime(
         self,
         df: pd.DataFrame,
-        duree_contrat: float
     ) -> dict:
         """
         Calcule la prime pure complète.
-        Formule : fréquence × coût moyen × durée contrat.
+        Formule : fréquence × coût moyen
 
         Args:
             df: DataFrame d'une ligne prêt pour la prédiction.
-            duree_contrat: Durée du contrat en années.
 
         Returns:
             Dictionnaire avec fréquence, gravité et prime pure.
         """
         frequence = self.predict_frequence(df)
         gravite = self.predict_gravite(df)
-        prime = frequence * gravite * duree_contrat
+        prime = frequence * gravite
 
         return {
             "frequence_predite": frequence,

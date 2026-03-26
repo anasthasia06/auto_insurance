@@ -3,8 +3,8 @@ Module de nettoyage des données pour l'assurance auto.
 Gère la suppression des colonnes inutiles, le remplissage des valeurs
 manquantes, l'encodage binaire et le CountEncoder.
 """
-
 import pickle
+import numpy as np
 import pandas as pd
 from category_encoders import CountEncoder
 
@@ -137,7 +137,6 @@ class DataPreprocessor:
 
     def _drop_high_correlation(self, df: pd.DataFrame) -> pd.DataFrame:
         """Supprime les colonnes numériques trop corrélées (> 0.95)."""
-        import numpy as np
         num = df.select_dtypes(include=['number']).columns.tolist()
         corr = df[num].corr().abs()
         upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
