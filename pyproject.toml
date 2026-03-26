@@ -1,0 +1,29 @@
+[project]
+name = "auto_insurance"
+version = "0.1.0"
+requires-python = ">=3.10"
+
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "scikit-learn",
+    "xgboost",
+    "pandas",
+    "numpy",
+    "category_encoders",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pylint",
+    "mypy",
+    "ruff",
+]
+
+[tool.ruff]
+line-length = 88
+
+[tool.mypy]
+ignore_missing_imports = true
