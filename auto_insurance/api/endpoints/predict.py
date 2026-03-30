@@ -28,10 +28,9 @@ def _prepare_features(
 ):
     """Pipeline commun : préprocessing + feature engineering."""
     try:
-        # On transforme le dictionnaire Pydantic en DataFrame d'UNE ligne avec les crochets [ ]
-        df_input = pd.DataFrame([data.model_dump()])
+        # On passe le dictionnaire direct, mais on précise qu'il est sur la ligne d'index 0
+        df_input = pd.DataFrame(data.model_dump(), index=[0])
         
-        # On passe ce DataFrame au preprocessor
         df = preprocessor.transform(df_input)
         df = feature_engineer.transform(df)
     except Exception as e:
