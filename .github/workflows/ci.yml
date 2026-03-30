@@ -30,5 +30,10 @@ jobs:
           uv run python -m pylint auto_insurance/src/ --disable=C0114,C0116
           uv run python -m mypy auto_insurance/src/
 
+          
       - name: Run Tests
         run: uv run python -m pytest tests/ -v
+      - name: Run Tests
+        run: |
+          uv pip install httpx
+          uv run python -m pytest tests/ -v
