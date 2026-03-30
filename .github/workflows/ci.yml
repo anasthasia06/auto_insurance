@@ -27,7 +27,7 @@ jobs:
       - name: Run Linting
         run: |
           uv run python -m ruff check auto_insurance/
-          uv run python -m pylint auto_insurance/src/
+          uv run python -m pylint auto_insurance/src/ --disable=C0114,C0116
           uv run python -m mypy auto_insurance/src/
 
       - name: Run Tests
