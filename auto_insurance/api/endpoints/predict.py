@@ -6,7 +6,7 @@ Endpoints de prédiction pour l'assurance auto.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-
+import pandas as pd
 from auto_insurance.api.dependencies import get_feature_engineer, get_model, get_preprocessor
 from auto_insurance.api.schemas.insurance import (
     FrequenceResponse,
@@ -28,12 +28,15 @@ def _prepare_features(
 ):
     """Pipeline commun : préprocessing + feature engineering."""
     try:
-        df = preprocessor.transform(data.model_dump())
+        # On transforme le dictionnaire Pydantic en DataFrame d'UNE ligne avec les crochets [ ]
+        df_input = pd.DataFrame([data.model_dump()])
+        
+        # On passe ce DataFrame au preprocessor
+        df = preprocessor.transform(df_input)
         df = feature_engineer.transform(df)
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Erreur de préprocessing : {e}") from e
     return df
-
 
 @router.post("/frequency", response_model=FrequenceResponse)
 def predict_frequency(
