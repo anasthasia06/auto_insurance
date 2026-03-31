@@ -1,19 +1,20 @@
-# auto_insurance
 # Auto Insurance — API de prédiction de prime
 
 API de prédiction de prime pure pour l'assurance automobile,
 basée sur deux modèles XGBoost (fréquence et gravité des sinistres).
+
+🚀 **Testez l'API en direct : [Swagger UI (Render)](https://api-auto-insurance-wissal.onrender.com/docs)**
 
 ## Installation
 
 ### Prérequis
 - Python 3.10+
 - uv
+- Docker (optionnel, pour le déploiement)
 
 ### Installer les dépendances
 ```bash
 python -m uv sync
-```
 
 ## Lancer les tests
 ```bash
