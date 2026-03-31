@@ -25,15 +25,21 @@ def _prepare_features(
     data: InsuranceInput,
     preprocessor: DataPreprocessor,
     feature_engineer: FeatureEngineer,
+    model: InsuranceModel,
 ):
     """Pipeline commun : préprocessing + feature engineering."""
     try:
-        # On transforme le dictionnaire Pydantic en DataFrame d'UNE ligne avec les crochets [ ]
-        df_input = pd.DataFrame([data.model_dump()])
-        
-        # On passe ce DataFrame au preprocessor
-        df = preprocessor.transform(df_input)
+        # On récupère le dict Pydantic et on le passe au preprocessor
+        # Le preprocessor crée lui-même un DataFrame à partir du dict
+        df = preprocessor.transform(data.model_dump())
         df = feature_engineer.transform(df)
+        # Aligner les colonnes sur celles attendues par le modèle (si connues)
+        expected = model.get_feature_names()
+        if expected is not None:
+            for c in expected:
+                if c not in df.columns:
+                    df[c] = 0
+            df = df[expected]
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Erreur de préprocessing : {e}") from e
     return df
@@ -54,7 +60,7 @@ def predict_frequency(
     Returns:
         Fréquence prédite (entre 0 et 1).
     """
-    df = _prepare_features(data, preprocessor, feature_engineer)
+    df = _prepare_features(data, preprocessor, feature_engineer, model)
     frequence = model.predict_frequence(df)
     return FrequenceResponse(frequence_predite=frequence)
 
@@ -75,7 +81,7 @@ def predict_severity(
     Returns:
         Coût moyen prédit en euros.
     """
-    df = _prepare_features(data, preprocessor, feature_engineer)
+    df = _prepare_features(data, preprocessor, feature_engineer, model)
     gravite = model.predict_gravite(df)
     return GraviteResponse(cout_moyen_predit=gravite)
 
@@ -96,6 +102,6 @@ def predict_premium(
     Returns:
         Fréquence, gravité et prime pure en euros.
     """
-    df = _prepare_features(data, preprocessor, feature_engineer)
+    df = _prepare_features(data, preprocessor, feature_engineer, model)
     result = model.predict_prime(df)
     return PrimeResponse(**result)

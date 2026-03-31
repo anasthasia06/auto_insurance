@@ -73,7 +73,10 @@ class DataPreprocessor:
 
         if self.encoder is not None:
             cols_present = [c for c in self.cat_cols if c in df.columns]
-            df[cols_present] = self.encoder.transform(df[cols_present])
+            # Seules transformer les colonnes présentes — éviter d'appeler
+            # l'encoder sur un DataFrame vide (erreur de dimension).
+            if len(cols_present) > 0:
+                df[cols_present] = self.encoder.transform(df[cols_present])
 
         return df
 
