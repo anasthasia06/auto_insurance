@@ -40,7 +40,8 @@ class InsuranceModel:
         try:
             booster = self.model_frequence.get_booster()
             self.feature_names = booster.feature_names
-        except Exception:
+        except (AttributeError, ValueError, RuntimeError):
+            # Cas où le booster ou les feature names ne sont pas disponibles.
             self.feature_names = None
 
     def predict_frequence(self, df: pd.DataFrame) -> float:
