@@ -26,18 +26,16 @@ def _prepare_features(
     preprocessor: DataPreprocessor,
     feature_engineer: FeatureEngineer,
 ):
-
     """Pipeline commun : préprocessing + feature engineering."""
     try:
-
-        df = preprocessor.transform(data.model_dump())
-
+        # On transforme le dictionnaire Pydantic en DataFrame d'UNE ligne avec les crochets [ ]
+        df_input = pd.DataFrame([data.model_dump()])
+        
+        # On passe ce DataFrame au preprocessor
+        df = preprocessor.transform(df_input)
         df = feature_engineer.transform(df)
-
     except Exception as e:
-
         raise HTTPException(status_code=422, detail=f"Erreur de préprocessing : {e}") from e
-
     return df
 
 @router.post("/frequency", response_model=FrequenceResponse)
