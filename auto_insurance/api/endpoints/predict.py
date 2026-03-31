@@ -6,7 +6,6 @@ Endpoints de prédiction pour l'assurance auto.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-import pandas as pd
 from auto_insurance.api.dependencies import get_feature_engineer, get_model, get_preprocessor
 from auto_insurance.api.schemas.insurance import (
     FrequenceResponse,
