@@ -26,15 +26,18 @@ def _prepare_features(
     preprocessor: DataPreprocessor,
     feature_engineer: FeatureEngineer,
 ):
+
     """Pipeline commun : préprocessing + feature engineering."""
     try:
-        # On passe le dictionnaire direct, mais on précise qu'il est sur la ligne d'index 0
-        df_input = pd.DataFrame(data.model_dump(), index=[0])
-        
-        df = preprocessor.transform(df_input)
+
+        df = preprocessor.transform(data.model_dump())
+
         df = feature_engineer.transform(df)
+
     except Exception as e:
+
         raise HTTPException(status_code=422, detail=f"Erreur de préprocessing : {e}") from e
+
     return df
 
 @router.post("/frequency", response_model=FrequenceResponse)
