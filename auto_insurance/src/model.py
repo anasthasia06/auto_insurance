@@ -39,7 +39,13 @@ class InsuranceModel:
         # Ils serviront pour aligner les DataFrame d'entrée avant prédiction.
         try:
             booster = self.model_frequence.get_booster()
-            self.feature_names = booster.feature_names
+            feature_names_seq = booster.feature_names
+            # booster.feature_names may be a Sequence[str] or None —
+            # convert to list[str] to satisfy the declared type.
+            if feature_names_seq is not None:
+                self.feature_names = list(feature_names_seq)
+            else:
+                self.feature_names = None
         except (AttributeError, ValueError, RuntimeError):
             # Cas où le booster ou les feature names ne sont pas disponibles.
             self.feature_names = None
