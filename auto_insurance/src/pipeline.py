@@ -102,7 +102,7 @@ class PredictionPipeline:
         df = df[EXPECTED_COLS]
 
         # Conversion pour XGBoost
-        cat_cols = df.select_dtypes(include="str").columns
+        cat_cols = df.select_dtypes(include=["object", "string"]).columns
         df[cat_cols] = df[cat_cols].astype("category")
 
         return df
