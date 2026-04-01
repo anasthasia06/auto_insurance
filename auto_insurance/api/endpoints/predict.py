@@ -3,45 +3,87 @@ Endpoints de prédiction pour l'assurance auto.
 /predict/frequency — probabilité de sinistre
 /predict/severity  — coût moyen d'un sinistre
 /predict/premium   — prime pure (fréquence × gravité)
-/predict/explain   — prime + facteurs de risque explicatifs
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from auto_insurance.api.dependencies import get_feature_engineer, get_model, get_preprocessor
+import pandas as pd
+import numpy as np
+
+# On n'importe QUE get_model ici !
+from auto_insurance.api.dependencies import get_model
 from auto_insurance.api.schemas.insurance import (
     FrequenceResponse,
     GraviteResponse,
     InsuranceInput,
     PrimeResponse,
 )
-from auto_insurance.src.features import FeatureEngineer
 from auto_insurance.src.model import InsuranceModel
-from auto_insurance.src.preprocessing import DataPreprocessor
 
 router = APIRouter(prefix="/predict", tags=["Predictions"])
 
+EXPECTED_COLS = [
+    "type_contrat", "duree_contrat", "anciennete_info", "freq_paiement",
+    "utilisation", "code_postal", "age_conducteur1", "sex_conducteur1",
+    "anciennete_permis1", "anciennete_vehicule", "cylindre_vehicule",
+    "din_vehicule", "essence_vehicule", "marque_vehicule", "modele_vehicule",
+    "fin_vente_vehicule", "vitesse_vehicule", "type_vehicule", "prix_vehicule",
+    "poids_vehicule", "ratio_poids_puissance", "age_obtention_permis",
+    "duree_vie_modele", "log_prix_vehicule"
+]
 
-def _prepare_features(
-    data: InsuranceInput,
-    preprocessor: DataPreprocessor,
-    feature_engineer: FeatureEngineer,
-    model: InsuranceModel,
-):
-    """Pipeline commun : préprocessing + feature engineering."""
+
+def _get_risk_level(frequence: float) -> str:
+    """Retourne le niveau de risque selon la fréquence prédite."""
+    if frequence < 0.05:
+        return "faible"
+    if frequence < 0.10:
+        return "modéré"
+    if frequence < 0.20:
+        return "élevé"
+    return "très élevé"
+
+
+def _prepare_features(data: InsuranceInput) -> pd.DataFrame:
+    """Construit le DataFrame avec les 24 features exactes attendues par XGBoost."""
     try:
-        # On récupère le dict Pydantic et on le passe au preprocessor
-        # Le preprocessor crée lui-même un DataFrame à partir du dict
-        df = preprocessor.transform(data.model_dump())
-        df = feature_engineer.transform(df)
-        # Aligner les colonnes sur celles attendues par le modèle (si connues)
-        expected = model.get_feature_names()
-        if expected is not None:
-            for c in expected:
-                if c not in df.columns:
-                    df[c] = 0
-            df = df[expected]
+        d = data.model_dump()
+        ratio = d["poids_vehicule"] / (d["din_vehicule"] + 1e-5)
+        age_permis = d["age_conducteur1"] - d["anciennete_permis1"]
+        duree_vie = d["fin_vente_vehicule"] - d.get("debut_vente_vehicule", d["fin_vente_vehicule"] - 5)
+        log_prix = float(np.log1p(d["prix_vehicule"]))
+
+        row = {
+            "type_contrat": d["type_contrat"],
+            "duree_contrat": d["duree_contrat"],
+            "anciennete_info": d["anciennete_info"],
+            "freq_paiement": d["freq_paiement"],
+            "utilisation": d["utilisation"],
+            "code_postal": d["code_postal"],
+            "age_conducteur1": d["age_conducteur1"],
+            "sex_conducteur1": d["sex_conducteur1"],
+            "anciennete_permis1": d["anciennete_permis1"],
+            "anciennete_vehicule": d["anciennete_vehicule"],
+            "cylindre_vehicule": d["cylindre_vehicule"],
+            "din_vehicule": d["din_vehicule"],
+            "essence_vehicule": d["essence_vehicule"],
+            "marque_vehicule": d["marque_vehicule"],
+            "modele_vehicule": d["modele_vehicule"],
+            "fin_vente_vehicule": d["fin_vente_vehicule"],
+            "vitesse_vehicule": d["vitesse_vehicule"],
+            "type_vehicule": d["type_vehicule"],
+            "prix_vehicule": d["prix_vehicule"],
+            "poids_vehicule": d["poids_vehicule"],
+            "ratio_poids_puissance": ratio,
+            "age_obtention_permis": age_permis,
+            "duree_vie_modele": duree_vie,
+            "log_prix_vehicule": log_prix,
+        }
+        df = pd.DataFrame([row])
+        # Notre correction magique avec "object" !
+        cat_cols = df.select_dtypes(include="object").columns
+        df[cat_cols] = df[cat_cols].astype("category")
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Erreur de préprocessing : {e}") from e
+        raise HTTPException(status_code=422, detail=f"Erreur : {e}") from e
     return df
 
 
@@ -49,60 +91,78 @@ def _prepare_features(
 def predict_frequency(
     data: InsuranceInput,
     model: InsuranceModel = Depends(get_model),
-    preprocessor: DataPreprocessor = Depends(get_preprocessor),
-    feature_engineer: FeatureEngineer = Depends(get_feature_engineer),
 ) -> FrequenceResponse:
-    """
-    Prédit la probabilité de sinistre (fréquence).
-
-    Args:
-        data: Données brutes du contrat d'assurance.
-
-    Returns:
-        Fréquence prédite (entre 0 et 1).
-    """
-    df = _prepare_features(data, preprocessor, feature_engineer, model)
-    frequence = model.predict_frequence(df)
-    return FrequenceResponse(frequence_predite=frequence)
+    """Prédit la probabilité de sinistre (fréquence)."""
+    df = _prepare_features(data)
+    return FrequenceResponse(
+        frequence_predite=round(model.predict_frequence(df), 4)
+    )
 
 
 @router.post("/severity", response_model=GraviteResponse)
 def predict_severity(
     data: InsuranceInput,
     model: InsuranceModel = Depends(get_model),
-    preprocessor: DataPreprocessor = Depends(get_preprocessor),
-    feature_engineer: FeatureEngineer = Depends(get_feature_engineer),
 ) -> GraviteResponse:
-    """
-    Prédit le coût moyen d'un sinistre (gravité).
-
-    Args:
-        data: Données brutes du contrat d'assurance.
-
-    Returns:
-        Coût moyen prédit en euros.
-    """
-    df = _prepare_features(data, preprocessor, feature_engineer, model)
-    gravite = model.predict_gravite(df)
-    return GraviteResponse(cout_moyen_predit=gravite)
+    """Prédit le coût moyen d'un sinistre (gravité)."""
+    df = _prepare_features(data)
+    return GraviteResponse(
+        cout_moyen_predit=round(model.predict_gravite(df), 2)
+    )
 
 
 @router.post("/premium", response_model=PrimeResponse)
 def predict_premium(
     data: InsuranceInput,
     model: InsuranceModel = Depends(get_model),
-    preprocessor: DataPreprocessor = Depends(get_preprocessor),
-    feature_engineer: FeatureEngineer = Depends(get_feature_engineer),
 ) -> PrimeResponse:
-    """
-    Calcule la prime pure = fréquence × gravité.
-
-    Args:
-        data: Données brutes du contrat d'assurance.
-
-    Returns:
-        Fréquence, gravité et prime pure en euros.
-    """
-    df = _prepare_features(data, preprocessor, feature_engineer, model)
+    """Calcule la prime pure = fréquence × gravité."""
+    df = _prepare_features(data)
     result = model.predict_prime(df)
-    return PrimeResponse(**result)
+    frequence = round(result["frequence_predite"], 4)
+    gravite = round(result["cout_moyen_predit"], 2)
+    prime = round(result["prime_pure"], 2)
+    return PrimeResponse(
+        frequence_predite=frequence,
+        cout_moyen_predit=gravite,
+        prime_pure=prime,
+        niveau_risque=_get_risk_level(frequence),
+        model_version="v1.0"
+    )
+    
+@router.post("/explain", tags=["Predictions"])
+def predict_explain(
+    data: InsuranceInput,
+    model: InsuranceModel = Depends(get_model),
+) -> dict:
+    """
+    Explique les facteurs qui influencent la prime calculée.
+    """
+    df = _prepare_features(data)
+    result = model.predict_prime(df)
+    frequence = round(result["frequence_predite"], 4)
+    gravite = round(result["cout_moyen_predit"], 2)
+    prime = round(result["prime_pure"], 2)
+
+    facteurs = []
+    if data.age_conducteur1 < 25:
+        facteurs.append("Conducteur jeune — risque plus élevé")
+    if data.din_vehicule > 150:
+        facteurs.append("Véhicule puissant — risque accru")
+    if data.prix_vehicule > 30000:
+        facteurs.append("Véhicule haut de gamme — coût de réparation élevé")
+    if data.anciennete_permis1 < 3:
+        facteurs.append("Permis récent — manque d'expérience")
+    if data.anciennete_vehicule > 10:
+        facteurs.append("Véhicule ancien — risque de panne")
+    if not facteurs:
+        facteurs.append("Profil standard — pas de facteur de risque majeur")
+
+    return {
+        "frequence_predite": frequence,
+        "cout_moyen_predit": gravite,
+        "prime_pure": prime,
+        "niveau_risque": _get_risk_level(frequence),
+        "facteurs_de_risque": facteurs,
+        "model_version": "v1.0"
+    }
