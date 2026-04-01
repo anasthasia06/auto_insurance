@@ -1,9 +1,9 @@
 """Endpoints de santé de l'API."""
 
 from fastapi import APIRouter, Depends
-from auto_insurance.api.dependencies import get_model
+from auto_insurance.api.dependencies import get_pipeline
 from auto_insurance.api.schemas.insurance import HealthResponse
-from auto_insurance.src.model import InsuranceModel
+from auto_insurance.src.pipeline import PredictionPipeline
 
 router = APIRouter()
 
@@ -20,7 +20,9 @@ def health_check() -> HealthResponse:
 
 
 @router.get("/health/models", tags=["Health"])
-def health_models(model: InsuranceModel = Depends(get_model)) -> dict:
+def health_models(
+    pipeline: PredictionPipeline = Depends(get_pipeline),
+) -> dict:
     """
     Vérifie que les modèles XGBoost sont bien chargés.
 
@@ -31,13 +33,13 @@ def health_models(model: InsuranceModel = Depends(get_model)) -> dict:
         "status": "ok",
         "models": {
             "frequence": {
-                "loaded": model.model_frequence is not None,
-                "features": len(model.model_frequence.feature_names_in_),
+                "loaded": pipeline.model.model_frequence is not None,
+                "features": len(pipeline.model.model_frequence.feature_names_in_),
                 "version": "v1.0"
             },
             "gravite": {
-                "loaded": model.model_gravite is not None,
-                "features": len(model.model_gravite.feature_names_in_),
+                "loaded": pipeline.model.model_gravite is not None,
+                "features": len(pipeline.model.model_gravite.feature_names_in_),
                 "version": "v1.0"
             }
         }
