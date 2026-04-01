@@ -79,8 +79,10 @@ class DataPreprocessor:
                 transformed = self.encoder.transform(df[cols_present])
                 # Some encoders / pandas versions return pandas 'string' dtypes
                 # which can cause downstream libraries (XGBoost) to reject inputs.
-                # Force categorical columns to plain Python objects (str) to be safe.
-                transformed = transformed.astype(object)
+                # Convert only 'string' dtypes to plain Python objects, keep numeric types.
+                for col in transformed.columns:
+                    if pd.api.types.is_string_dtype(transformed[col].dtype):
+                        transformed[col] = transformed[col].astype(object)
                 df[cols_present] = transformed
 
         return df
