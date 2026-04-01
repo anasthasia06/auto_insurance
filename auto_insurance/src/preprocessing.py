@@ -76,7 +76,12 @@ class DataPreprocessor:
             # Seules transformer les colonnes présentes — éviter d'appeler
             # l'encoder sur un DataFrame vide (erreur de dimension).
             if len(cols_present) > 0:
-                df[cols_present] = self.encoder.transform(df[cols_present])
+                transformed = self.encoder.transform(df[cols_present])
+                # Some encoders / pandas versions return pandas 'string' dtypes
+                # which can cause downstream libraries (XGBoost) to reject inputs.
+                # Force categorical columns to plain Python objects (str) to be safe.
+                transformed = transformed.astype(object)
+                df[cols_present] = transformed
 
         return df
 
