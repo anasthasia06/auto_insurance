@@ -44,6 +44,9 @@ def _get_risk_level(frequence: float) -> str:
 
 def _prepare_features(data: InsuranceInput) -> pd.DataFrame:
     """Construit le DataFrame avec les 24 features exactes attendues par XGBoost."""
+    import pandas as pd
+    
+    # Coerce any non-numeric (including numpy string dtypes) to Python object
     try:
         d = data.model_dump()
         ratio = d["poids_vehicule"] / (d["din_vehicule"] + 1e-5)
@@ -92,6 +95,9 @@ def predict_frequency(
 ) -> FrequenceResponse:
     """Prédit la probabilité de sinistre (fréquence)."""
     df = _prepare_features(data)
+    for c in df.columns:
+        if not pd.api.types.is_numeric_dtype(df[c].dtype):
+            df[c] = df[c].astype(object)
     return FrequenceResponse(
         frequence_predite=round(model.predict_frequence(df), 4)
     )
@@ -104,6 +110,9 @@ def predict_severity(
 ) -> GraviteResponse:
     """Prédit le coût moyen d'un sinistre (gravité)."""
     df = _prepare_features(data)
+    for c in df.columns:
+        if not pd.api.types.is_numeric_dtype(df[c].dtype):
+            df[c] = df[c].astype(object)
     return GraviteResponse(
         cout_moyen_predit=round(model.predict_gravite(df), 2)
     )
@@ -116,6 +125,9 @@ def predict_premium(
 ) -> PrimeResponse:
     """Calcule la prime pure = fréquence × gravité."""
     df = _prepare_features(data)
+    for c in df.columns:
+        if not pd.api.types.is_numeric_dtype(df[c].dtype):
+            df[c] = df[c].astype(object)
     result = model.predict_prime(df)
     frequence = round(result["frequence_predite"], 4)
     gravite = round(result["cout_moyen_predit"], 2)
