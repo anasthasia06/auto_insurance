@@ -85,6 +85,19 @@ class DataPreprocessor:
                         transformed[col] = transformed[col].astype(object)
                 df[cols_present] = transformed
 
+        # Ensure no column uses numpy string dtypes (e.g., '<U' or 'S'),
+        # which can cause errors in downstream libraries. Convert such
+        # columns to Python `str` objects (object dtype).
+        for col in df.columns:
+            try:
+                dtype_kind = df[col].dtype.kind
+            except Exception:
+                dtype_kind = None
+            if dtype_kind in ("U", "S") or pd.api.types.is_string_dtype(df[col].dtype):
+                # astype(str) converts numpy string types to Python str values;
+                # then ensure object dtype.
+                df[col] = df[col].astype(str).astype(object)
+
         return df
 
     def save_encoder(self, path: str) -> None:
