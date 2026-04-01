@@ -9,23 +9,18 @@ from fastapi import APIRouter, Depends, HTTPException
 import pandas as pd
 import numpy as np
 
+# On importe le bon gestionnaire (le super-pipeline de ton équipe) !
+from auto_insurance.api.dependencies import get_pipeline
+from auto_insurance.src.pipeline import PredictionPipeline
+
 from auto_insurance.api.schemas.insurance import (
     FrequenceResponse,
     GraviteResponse,
     InsuranceInput,
     PrimeResponse,
 )
-from auto_insurance.src.model import InsuranceModel
 
 router = APIRouter(prefix="/predict", tags=["Predictions"])
-
-# --- NOTRE ASTUCE DEVOPS ---
-# Au lieu d'importer depuis un fichier cassé, on instancie le modèle directement ici !
-_insurance_model = InsuranceModel()
-
-def get_model():
-    return _insurance_model
-# ---------------------------
 
 EXPECTED_COLS = [
     "type_contrat", "duree_contrat", "anciennete_info", "freq_paiement",
@@ -37,7 +32,6 @@ EXPECTED_COLS = [
     "duree_vie_modele", "log_prix_vehicule"
 ]
 
-
 def _get_risk_level(frequence: float) -> str:
     """Retourne le niveau de risque selon la fréquence prédite."""
     if frequence < 0.05:
@@ -48,9 +42,8 @@ def _get_risk_level(frequence: float) -> str:
         return "élevé"
     return "très élevé"
 
-
 def _prepare_features(data: InsuranceInput) -> pd.DataFrame:
-    """Construit le DataFrame avec les 24 features exactes attendues par XGBoost."""
+    """Construit le DataFrame avec les 24 features exactes attendues."""
     try:
         d = data.model_dump()
         ratio = d["poids_vehicule"] / (d["din_vehicule"] + 1e-5)
@@ -85,46 +78,43 @@ def _prepare_features(data: InsuranceInput) -> pd.DataFrame:
             "log_prix_vehicule": log_prix,
         }
         df = pd.DataFrame([row])
-        # Notre correction object qui marchait si bien !
+        # Notre correction anti-bug Numpy est toujours là !
         cat_cols = df.select_dtypes(include="object").columns
         df[cat_cols] = df[cat_cols].astype("category")
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Erreur : {e}") from e
     return df
 
-
 @router.post("/frequency", response_model=FrequenceResponse)
 def predict_frequency(
     data: InsuranceInput,
-    model: InsuranceModel = Depends(get_model),
+    pipeline: PredictionPipeline = Depends(get_pipeline),
 ) -> FrequenceResponse:
     """Prédit la probabilité de sinistre (fréquence)."""
     df = _prepare_features(data)
     return FrequenceResponse(
-        frequence_predite=round(model.predict_frequence(df), 4)
+        frequence_predite=round(pipeline.predict_frequence(df), 4)
     )
-
 
 @router.post("/severity", response_model=GraviteResponse)
 def predict_severity(
     data: InsuranceInput,
-    model: InsuranceModel = Depends(get_model),
+    pipeline: PredictionPipeline = Depends(get_pipeline),
 ) -> GraviteResponse:
     """Prédit le coût moyen d'un sinistre (gravité)."""
     df = _prepare_features(data)
     return GraviteResponse(
-        cout_moyen_predit=round(model.predict_gravite(df), 2)
+        cout_moyen_predit=round(pipeline.predict_gravite(df), 2)
     )
-
 
 @router.post("/premium", response_model=PrimeResponse)
 def predict_premium(
     data: InsuranceInput,
-    model: InsuranceModel = Depends(get_model),
+    pipeline: PredictionPipeline = Depends(get_pipeline),
 ) -> PrimeResponse:
     """Calcule la prime pure = fréquence × gravité."""
     df = _prepare_features(data)
-    result = model.predict_prime(df)
+    result = pipeline.predict_prime(df)
     frequence = round(result["frequence_predite"], 4)
     gravite = round(result["cout_moyen_predit"], 2)
     prime = round(result["prime_pure"], 2)
@@ -139,13 +129,11 @@ def predict_premium(
 @router.post("/explain", tags=["Predictions"])
 def predict_explain(
     data: InsuranceInput,
-    model: InsuranceModel = Depends(get_model),
+    pipeline: PredictionPipeline = Depends(get_pipeline),
 ) -> dict:
-    """
-    Explique les facteurs qui influencent la prime calculée.
-    """
+    """Explique les facteurs qui influencent la prime calculée."""
     df = _prepare_features(data)
-    result = model.predict_prime(df)
+    result = pipeline.predict_prime(df)
     frequence = round(result["frequence_predite"], 4)
     gravite = round(result["cout_moyen_predit"], 2)
     prime = round(result["prime_pure"], 2)
