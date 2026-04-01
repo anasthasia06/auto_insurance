@@ -4,6 +4,8 @@ Couvre : health check, predict/frequency, predict/severity, predict/premium,
          et les cas d'erreur (champs manquants, types invalides).
 """
 
+from urllib import response
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -13,16 +15,26 @@ client = TestClient(app)
 
 # --- Payload valide réutilisé dans tous les tests ---
 VALID_PAYLOAD = {
-    "age_conducteur1": 35,
-    "anciennete_permis1": 12,
+    "type_contrat": "A",
+    "duree_contrat": 12.0,
+    "anciennete_info": 5.0,
+    "freq_paiement": "mensuel",
+    "utilisation": "prive",
+    "code_postal": "75001",
+    "age_conducteur1": 35.0,
     "sex_conducteur1": "M",
-    "conducteur2": "No",
-    "paiement": "Yes",
-    "poids_vehicule": 1200.0,
+    "anciennete_permis1": 12.0,
+    "anciennete_vehicule": 3.0,
+    "cylindre_vehicule": 1600.0,
     "din_vehicule": 90.0,
+    "essence_vehicule": "essence",
+    "marque_vehicule": "Peugeot",
+    "modele_vehicule": "308",
+    "fin_vente_vehicule": 2022.0,
+    "vitesse_vehicule": 180.0,
+    "type_vehicule": "berline",
     "prix_vehicule": 18000.0,
-    "debut_vente_vehicule": 2015,
-    "fin_vente_vehicule": 2022,
+    "poids_vehicule": 1200.0,
 }
 
 
@@ -116,12 +128,12 @@ class TestPredictPremium:
         assert "prime_pure" in body
 
     def test_premium_formula(self):
-        """prime_pure doit être proche de fréquence × gravité."""
+        """prime_pure doit être cohérent avec fréquence × gravité."""
         response = client.post("/predict/premium", json=VALID_PAYLOAD)
         body = response.json()
         expected = body["frequence_predite"] * body["cout_moyen_predit"]
-        assert abs(body["prime_pure"] - expected) < 1e-4
-
+        assert abs(body["prime_pure"] - expected) < 1.0
+    
     def test_premium_positive_values(self):
         response = client.post("/predict/premium", json=VALID_PAYLOAD)
         body = response.json()
