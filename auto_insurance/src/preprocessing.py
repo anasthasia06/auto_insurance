@@ -91,7 +91,9 @@ class DataPreprocessor:
         for col in df.columns:
             try:
                 dtype_kind = df[col].dtype.kind
-            except Exception:
+            except (AttributeError, TypeError):
+                # Some exotic dtypes may not expose `dtype.kind` or may
+                # raise TypeError when queried; treat these as unknown.
                 dtype_kind = None
             if dtype_kind in ("U", "S") or pd.api.types.is_string_dtype(df[col].dtype):
                 # astype(str) converts numpy string types to Python str values;
