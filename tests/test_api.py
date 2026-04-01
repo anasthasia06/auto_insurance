@@ -161,3 +161,35 @@ class TestPredictPremium:
         payload = {**VALID_PAYLOAD, "conducteur2": "Yes"}
         response = client.post("/predict/premium", json=payload)
         assert response.status_code == 200
+# ──────────────────────────────────────────────
+# Validation métier
+# ──────────────────────────────────────────────
+
+class TestValidationMetier:
+    def test_impossible_age_permis(self):
+        """Un conducteur de 20 ans avec 15 ans de permis = impossible."""
+        payload = {**VALID_PAYLOAD, "age_conducteur1": 20, "anciennete_permis1": 15}
+        response = client.post("/predict/premium", json=payload)
+        assert response.status_code == 422
+
+    def test_frequence_entre_0_et_1(self):
+        """La fréquence prédite doit être entre 0 et 1."""
+        response = client.post("/predict/frequency", json=VALID_PAYLOAD)
+        freq = response.json()["frequence_predite"]
+        assert 0 <= freq <= 1
+
+    def test_gravite_positive(self):
+        """Le coût moyen prédit doit être positif."""
+        response = client.post("/predict/severity", json=VALID_PAYLOAD)
+        assert response.json()["cout_moyen_predit"] > 0
+
+    def test_niveau_risque_present(self):
+        """La réponse premium doit contenir un niveau de risque."""
+        response = client.post("/predict/premium", json=VALID_PAYLOAD)
+        assert "niveau_risque" in response.json()
+
+    def test_niveau_risque_valide(self):
+        """Le niveau de risque doit être une valeur connue."""
+        response = client.post("/predict/premium", json=VALID_PAYLOAD)
+        niveau = response.json()["niveau_risque"]
+        assert niveau in ["faible", "modéré", "élevé", "très élevé"]

@@ -3,7 +3,7 @@ Schémas Pydantic pour l'API d'assurance auto.
 Définit les modèles d'entrée (contrat) et de sortie (prédictions).
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class InsuranceInput(BaseModel):
@@ -37,7 +37,15 @@ class InsuranceInput(BaseModel):
     type_vehicule: str = Field(..., description="Type de véhicule")
     prix_vehicule: float = Field(..., ge=0, description="Prix du véhicule (€)")
     poids_vehicule: float = Field(..., ge=0, description="Poids du véhicule (kg)")
-
+    @model_validator(mode="after")
+    def check_age_permis_coherence(self):
+        """Vérifie que l'âge d'obtention du permis est réaliste."""
+        age_obtention = self.age_conducteur1 - self.anciennete_permis1
+        if age_obtention < 16:
+            raise ValueError(
+                f"Incohérence détectée : permis obtenu à {age_obtention:.0f} ans — impossible."
+            )
+        return self
     model_config = {
         "json_schema_extra": {
             "example": {
