@@ -19,6 +19,7 @@ class InsuranceModel:
     def __init__(self) -> None:
         self.model_frequence: XGBRegressor = XGBRegressor()
         self.model_gravite: XGBRegressor = XGBRegressor()
+        self.feature_names: list[str] | None = None
 
     def load_models(
         self,
@@ -34,6 +35,20 @@ class InsuranceModel:
         """
         self.model_frequence.load_model(path_frequence)
         self.model_gravite.load_model(path_gravite)
+        # Extraire les noms de features attendus par le modèle de fréquence.
+        # Ils serviront pour aligner les DataFrame d'entrée avant prédiction.
+        try:
+            booster = self.model_frequence.get_booster()
+            feature_names_seq = booster.feature_names
+            # booster.feature_names may be a Sequence[str] or None —
+            # convert to list[str] to satisfy the declared type.
+            if feature_names_seq is not None:
+                self.feature_names = list(feature_names_seq)
+            else:
+                self.feature_names = None
+        except (AttributeError, ValueError, RuntimeError):
+            # Cas où le booster ou les feature names ne sont pas disponibles.
+            self.feature_names = None
 
     def predict_frequence(self, df: pd.DataFrame) -> float:
         """
@@ -82,3 +97,7 @@ class InsuranceModel:
             "cout_moyen_predit": gravite,
             "prime_pure": prime
         }
+
+    def get_feature_names(self) -> list[str] | None:
+        """Retourne la liste des features attendues par le modèle (ou None)."""
+        return self.feature_names
