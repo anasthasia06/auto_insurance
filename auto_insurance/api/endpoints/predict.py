@@ -127,3 +127,43 @@ def predict_premium(
         niveau_risque=_get_risk_level(frequence),
         model_version="v1.0"
     )
+    
+@router.post("/explain", tags=["Predictions"])
+def predict_explain(
+    data: InsuranceInput,
+    model: InsuranceModel = Depends(get_model),
+) -> dict:
+    """
+    Explique les facteurs qui influencent la prime calculée.
+
+    Returns:
+        Prime pure + explication des facteurs de risque.
+    """
+    df = _prepare_features(data)
+    result = model.predict_prime(df)
+    frequence = round(result["frequence_predite"], 4)
+    gravite = round(result["cout_moyen_predit"], 2)
+    prime = round(result["prime_pure"], 2)
+
+    facteurs = []
+    if data.age_conducteur1 < 25:
+        facteurs.append("Conducteur jeune — risque plus élevé")
+    if data.din_vehicule > 150:
+        facteurs.append("Véhicule puissant — risque accru")
+    if data.prix_vehicule > 30000:
+        facteurs.append("Véhicule haut de gamme — coût de réparation élevé")
+    if data.anciennete_permis1 < 3:
+        facteurs.append("Permis récent — manque d'expérience")
+    if data.anciennete_vehicule > 10:
+        facteurs.append("Véhicule ancien — risque de panne")
+    if not facteurs:
+        facteurs.append("Profil standard — pas de facteur de risque majeur")
+
+    return {
+        "frequence_predite": frequence,
+        "cout_moyen_predit": gravite,
+        "prime_pure": prime,
+        "niveau_risque": _get_risk_level(frequence),
+        "facteurs_de_risque": facteurs,
+        "model_version": "v1.0"
+    }
