@@ -9,8 +9,6 @@ from fastapi import APIRouter, Depends, HTTPException
 import pandas as pd
 import numpy as np
 
-# On n'importe QUE get_model ici !
-from auto_insurance.api.dependencies import get_model
 from auto_insurance.api.schemas.insurance import (
     FrequenceResponse,
     GraviteResponse,
@@ -20,6 +18,14 @@ from auto_insurance.api.schemas.insurance import (
 from auto_insurance.src.model import InsuranceModel
 
 router = APIRouter(prefix="/predict", tags=["Predictions"])
+
+# --- NOTRE ASTUCE DEVOPS ---
+# Au lieu d'importer depuis un fichier cassé, on instancie le modèle directement ici !
+_insurance_model = InsuranceModel()
+
+def get_model():
+    return _insurance_model
+# ---------------------------
 
 EXPECTED_COLS = [
     "type_contrat", "duree_contrat", "anciennete_info", "freq_paiement",
@@ -79,7 +85,7 @@ def _prepare_features(data: InsuranceInput) -> pd.DataFrame:
             "log_prix_vehicule": log_prix,
         }
         df = pd.DataFrame([row])
-        # Notre correction magique avec "object" !
+        # Notre correction object qui marchait si bien !
         cat_cols = df.select_dtypes(include="object").columns
         df[cat_cols] = df[cat_cols].astype("category")
     except Exception as e:
