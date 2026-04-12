@@ -37,6 +37,7 @@ class InsuranceInput(BaseModel):
     type_vehicule: str = Field(..., description="Type de véhicule")
     prix_vehicule: float = Field(..., ge=0, description="Prix du véhicule (€)")
     poids_vehicule: float = Field(..., ge=0, description="Poids du véhicule (kg)")
+
     @model_validator(mode="after")
     def check_age_permis_coherence(self):
         """Vérifie que l'âge d'obtention du permis est réaliste."""
@@ -46,6 +47,7 @@ class InsuranceInput(BaseModel):
                 f"Incohérence détectée : permis obtenu à {age_obtention:.0f} ans — impossible."
             )
         return self
+
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -89,7 +91,10 @@ class PrimeResponse(BaseModel):
     frequence_predite: float = Field(..., description="Probabilité de sinistre prédite")
     cout_moyen_predit: float = Field(..., description="Coût moyen d'un sinistre prédit (€)")
     prime_pure: float = Field(..., description="Prime pure = fréquence × gravité (€)")
-    niveau_risque: str = Field(..., description="Niveau de risque : faible, modéré, élevé, très élevé")
+    niveau_risque: str = Field(
+        ...,
+        description="Niveau de risque : faible, modéré, élevé, très élevé"
+    )
     model_version: str = Field(default="v1.0", description="Version du modèle utilisé")
 
 

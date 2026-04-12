@@ -11,7 +11,11 @@ from auto_insurance.api.endpoints.predict import router as predict_router
 
 app = FastAPI(
     title="AutoAssur — API de Tarification Automobile",
-    description="API REST propulsée par deux modèles XGBoost pour calculer la prime pure en temps réel. Fréquence × Gravité = Prime.",
+    description=(
+        "API REST propulsée par deux modèles XGBoost "
+        "pour calculer la prime pure en temps réel. "
+        "Fréquence × Gravité = Prime."
+    ),
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -22,7 +26,8 @@ app.include_router(predict_router)
 
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-def landing_page():
+def landing_page() -> HTMLResponse:
+    """Retourne la page d'accueil HTML de l'API."""
     return """
 <!DOCTYPE html>
 <html lang="fr">

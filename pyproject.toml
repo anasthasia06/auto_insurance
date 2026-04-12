@@ -20,6 +20,7 @@ dev = [
     "pylint",
     "mypy",
     "ruff",
+    "httpx",
 ]
 
 [tool.ruff]
