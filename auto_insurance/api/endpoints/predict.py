@@ -6,6 +6,8 @@ Endpoints de prédiction pour l'assurance auto.
 /predict/explain   — prime + facteurs de risque explicatifs
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from auto_insurance.api.dependencies import get_pipeline
@@ -17,6 +19,8 @@ from auto_insurance.api.schemas.insurance import (
     PrimeResponse,
 )
 from auto_insurance.src.pipeline import PredictionPipeline
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/predict", tags=["Predictions"])
 
@@ -56,10 +60,13 @@ def predict_frequency(
     pipeline: PredictionPipeline = Depends(get_pipeline),
 ) -> FrequenceResponse:
     """Prédit la probabilité de sinistre (fréquence)."""
+    logger.info("POST /predict/frequency — marque=%s", data.marque_vehicule)
     try:
         frequence = pipeline.predict_frequence(data.model_dump())
+        logger.info("Fréquence prédite : %.4f", frequence)
         return FrequenceResponse(frequence_predite=frequence)
     except Exception as e:
+        logger.exception("Erreur /predict/frequency")
         raise HTTPException(status_code=500, detail=f"Erreur de prédiction : {e}") from e
 
 
@@ -69,10 +76,13 @@ def predict_severity(
     pipeline: PredictionPipeline = Depends(get_pipeline),
 ) -> GraviteResponse:
     """Prédit le coût moyen d'un sinistre (gravité)."""
+    logger.info("POST /predict/severity — marque=%s", data.marque_vehicule)
     try:
         gravite = pipeline.predict_gravite(data.model_dump())
+        logger.info("Gravité prédite : %.2f", gravite)
         return GraviteResponse(cout_moyen_predit=gravite)
     except Exception as e:
+        logger.exception("Erreur /predict/severity")
         raise HTTPException(status_code=500, detail=f"Erreur de prédiction : {e}") from e
 
 
@@ -82,8 +92,10 @@ def predict_premium(
     pipeline: PredictionPipeline = Depends(get_pipeline),
 ) -> PrimeResponse:
     """Calcule la prime pure = fréquence × gravité."""
+    logger.info("POST /predict/premium — marque=%s", data.marque_vehicule)
     try:
         result = pipeline.predict_prime(data.model_dump())
+        logger.info("Prime pure : %.2f", result["prime_pure"])
         return PrimeResponse(
             frequence_predite=result["frequence_predite"],
             cout_moyen_predit=result["cout_moyen_predit"],
@@ -92,6 +104,7 @@ def predict_premium(
             model_version="v1.0"
         )
     except Exception as e:
+        logger.exception("Erreur /predict/premium")
         raise HTTPException(status_code=500, detail=f"Erreur de prédiction : {e}") from e
 
 
@@ -101,8 +114,10 @@ def predict_explain(
     pipeline: PredictionPipeline = Depends(get_pipeline),
 ) -> ExplainResponse:
     """Explique les facteurs qui influencent la prime calculée."""
+    logger.info("POST /predict/explain — marque=%s", data.marque_vehicule)
     try:
         result = pipeline.predict_prime(data.model_dump())
+        logger.info("Explain — prime=%.2f, risque=%s", result["prime_pure"], _get_risk_level(result["frequence_predite"]))
         return ExplainResponse(
             frequence_predite=result["frequence_predite"],
             cout_moyen_predit=result["cout_moyen_predit"],
@@ -112,4 +127,5 @@ def predict_explain(
             model_version="v1.0",
         )
     except Exception as e:
+        logger.exception("Erreur /predict/explain")
         raise HTTPException(status_code=500, detail=f"Erreur de prédiction : {e}") from e
