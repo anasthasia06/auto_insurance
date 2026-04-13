@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from auto_insurance.api.dependencies import get_pipeline
 from auto_insurance.api.schemas.insurance import (
+    ExplainResponse,
     FrequenceResponse,
     GraviteResponse,
     InsuranceInput,
@@ -94,21 +95,21 @@ def predict_premium(
         raise HTTPException(status_code=500, detail=f"Erreur de prédiction : {e}") from e
 
 
-@router.post("/explain", tags=["Predictions"])
+@router.post("/explain", response_model=ExplainResponse)
 def predict_explain(
     data: InsuranceInput,
     pipeline: PredictionPipeline = Depends(get_pipeline),
-) -> dict:
+) -> ExplainResponse:
     """Explique les facteurs qui influencent la prime calculée."""
     try:
         result = pipeline.predict_prime(data.model_dump())
-        return {
-            "frequence_predite": result["frequence_predite"],
-            "cout_moyen_predit": result["cout_moyen_predit"],
-            "prime_pure": result["prime_pure"],
-            "niveau_risque": _get_risk_level(result["frequence_predite"]),
-            "facteurs_de_risque": _get_risk_factors(data),
-            "model_version": "v1.0"
-        }
+        return ExplainResponse(
+            frequence_predite=result["frequence_predite"],
+            cout_moyen_predit=result["cout_moyen_predit"],
+            prime_pure=result["prime_pure"],
+            niveau_risque=_get_risk_level(result["frequence_predite"]),
+            facteurs_de_risque=_get_risk_factors(data),
+            model_version="v1.0",
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur de prédiction : {e}") from e

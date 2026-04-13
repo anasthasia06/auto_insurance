@@ -33,6 +33,10 @@ class InsuranceInput(BaseModel):
     marque_vehicule: str = Field(..., description="Marque du véhicule")
     modele_vehicule: str = Field(..., description="Modèle du véhicule")
     fin_vente_vehicule: float = Field(..., description="Année de fin de commercialisation")
+    debut_vente_vehicule: float | None = Field(
+        default=None,
+        description="Année de début de commercialisation (optionnel — fallback : fin - 5 ans)",
+    )
     vitesse_vehicule: float = Field(..., ge=0, description="Vitesse max du véhicule (km/h)")
     type_vehicule: str = Field(..., description="Type de véhicule")
     prix_vehicule: float = Field(..., ge=0, description="Prix du véhicule (€)")
@@ -95,6 +99,16 @@ class PrimeResponse(BaseModel):
         ...,
         description="Niveau de risque : faible, modéré, élevé, très élevé"
     )
+    model_version: str = Field(default="v1.0", description="Version du modèle utilisé")
+
+
+class ExplainResponse(BaseModel):
+    """Réponse enrichie : prime pure + facteurs de risque explicatifs."""
+    frequence_predite: float = Field(..., description="Probabilité de sinistre prédite")
+    cout_moyen_predit: float = Field(..., description="Coût moyen d'un sinistre prédit (€)")
+    prime_pure: float = Field(..., description="Prime pure = fréquence × gravité (€)")
+    niveau_risque: str = Field(..., description="Niveau de risque : faible, modéré, élevé, très élevé")
+    facteurs_de_risque: list[str] = Field(..., description="Facteurs de risque détectés")
     model_version: str = Field(default="v1.0", description="Version du modèle utilisé")
 
 
