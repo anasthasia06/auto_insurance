@@ -73,7 +73,32 @@ class DataPreprocessor:
 
         if self.encoder is not None:
             cols_present = [c for c in self.cat_cols if c in df.columns]
-            df[cols_present] = self.encoder.transform(df[cols_present])
+            # Seules transformer les colonnes présentes — éviter d'appeler
+            # l'encoder sur un DataFrame vide (erreur de dimension).
+            if len(cols_present) > 0:
+                transformed = self.encoder.transform(df[cols_present])
+                # Some encoders / pandas versions return pandas 'string' dtypes
+                # which can cause downstream libraries (XGBoost) to reject inputs.
+                # Convert only 'string' dtypes to plain Python objects, keep numeric types.
+                for col in transformed.columns:
+                    if pd.api.types.is_string_dtype(transformed[col].dtype):
+                        transformed[col] = transformed[col].astype(object)
+                df[cols_present] = transformed
+
+        # Ensure no column uses numpy string dtypes (e.g., '<U' or 'S'),
+        # which can cause errors in downstream libraries. Convert such
+        # columns to Python `str` objects (object dtype).
+        for col in df.columns:
+            try:
+                dtype_kind = df[col].dtype.kind
+            except (AttributeError, TypeError):
+                # Some exotic dtypes may not expose `dtype.kind` or may
+                # raise TypeError when queried; treat these as unknown.
+                dtype_kind = None
+            if dtype_kind in ("U", "S") or pd.api.types.is_string_dtype(df[col].dtype):
+                # astype(str) converts numpy string types to Python str values;
+                # then ensure object dtype.
+                df[col] = df[col].astype(str).astype(object)
 
         return df
 
