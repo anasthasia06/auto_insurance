@@ -6,14 +6,16 @@ Orchestre le feature engineering et la prédiction.
 import logging
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
+from auto_insurance.src.features import FeatureEngineer
 from auto_insurance.src.model import InsuranceModel
+from auto_insurance.src.preprocessing import DataPreprocessor
 
 logger = logging.getLogger(__name__)
 
 MODELS_DIR = Path(__file__).parent.parent / "models"
+ENCODER_PATH = MODELS_DIR / "encoder.pkl"
 
 EXPECTED_COLS = [
     "type_contrat", "duree_contrat", "anciennete_info", "freq_paiement",
@@ -36,14 +38,17 @@ class PredictionPipeline:
 
     def __init__(self) -> None:
         self.model = InsuranceModel()
+        self.preprocessor = DataPreprocessor()
+        self.engineer = FeatureEngineer()
         self._load()
 
     def _load(self) -> None:
-        """Charge les modèles au démarrage."""
+        """Charge les modèles et l'encodeur au démarrage."""
         self.model.load_models(
             str(MODELS_DIR / "model_frequence.json"),
             str(MODELS_DIR / "model_gravite.json"),
         )
+        self.preprocessor.load_encoder(str(ENCODER_PATH))
         logger.info("Pipeline chargé avec succès.")
 
     def _build_features(self, input_data: dict) -> pd.DataFrame:
@@ -56,44 +61,12 @@ class PredictionPipeline:
         Returns:
             DataFrame aligné et prêt pour la prédiction.
         """
-        d = input_data
+        data = dict(input_data)
+        if data.get("debut_vente_vehicule") is None:
+            data["debut_vente_vehicule"] = data["fin_vente_vehicule"] - 5
 
-        # Features calculées
-        ratio = d["poids_vehicule"] / (d["din_vehicule"] + 1e-5)
-        age_permis = max(0.0, d["age_conducteur1"] - d["anciennete_permis1"])
-        duree_vie = d["fin_vente_vehicule"] - d.get(
-            "debut_vente_vehicule", d["fin_vente_vehicule"] - 5
-        )
-        log_prix = float(np.log1p(d["prix_vehicule"]))
-
-        row = {
-            "type_contrat": d["type_contrat"],
-            "duree_contrat": d["duree_contrat"],
-            "anciennete_info": d["anciennete_info"],
-            "freq_paiement": d["freq_paiement"],
-            "utilisation": d["utilisation"],
-            "code_postal": d["code_postal"],
-            "age_conducteur1": d["age_conducteur1"],
-            "sex_conducteur1": d["sex_conducteur1"],
-            "anciennete_permis1": d["anciennete_permis1"],
-            "anciennete_vehicule": d["anciennete_vehicule"],
-            "cylindre_vehicule": d["cylindre_vehicule"],
-            "din_vehicule": d["din_vehicule"],
-            "essence_vehicule": d["essence_vehicule"],
-            "marque_vehicule": d["marque_vehicule"],
-            "modele_vehicule": d["modele_vehicule"],
-            "fin_vente_vehicule": d["fin_vente_vehicule"],
-            "vitesse_vehicule": d["vitesse_vehicule"],
-            "type_vehicule": d["type_vehicule"],
-            "prix_vehicule": d["prix_vehicule"],
-            "poids_vehicule": d["poids_vehicule"],
-            "ratio_poids_puissance": ratio,
-            "age_obtention_permis": age_permis,
-            "duree_vie_modele": duree_vie,
-            "log_prix_vehicule": log_prix,
-        }
-
-        df = pd.DataFrame([row])
+        df = self.preprocessor.transform(data)
+        df = self.engineer.transform(df)
 
         # Alignement strict des colonnes attendues
         for col in EXPECTED_COLS:

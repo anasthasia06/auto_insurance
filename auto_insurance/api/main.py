@@ -112,12 +112,17 @@ def landing_page() -> HTMLResponse:
       <code>/predict/premium</code>
       <span class="endpoint-desc featured">Prime pure complète</span>
     </div>
+    <div class="endpoint">
+      <span class="badge-post">POST</span>
+      <code>/predict/explain</code>
+      <span class="endpoint-desc">Prime + facteurs de risque</span>
+    </div>
   </div>
 
   <div class="section">
     <div class="stats">
       <div class="stat">
-        <p class="stat-num">20</p>
+        <p class="stat-num">45</p>
         <p class="stat-label">tests passés</p>
       </div>
       <div class="stat">
