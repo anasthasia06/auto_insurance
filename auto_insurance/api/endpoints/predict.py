@@ -1,14 +1,11 @@
-"""
-Endpoints de prédiction pour l'assurance auto.
-/predict/frequency — probabilité de sinistre
-/predict/severity  — coût moyen d'un sinistre
-/predict/premium   — prime pure (fréquence × gravité)
-/predict/explain   — prime + facteurs de risque explicatifs
-"""
+"""Prediction endpoints for the auto insurance API."""
+
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from auto_insurance.api.dependencies import get_pipeline
+from auto_insurance.api.dependencies import get_audit_repository, get_pipeline
+from auto_insurance.api.persistence import PredictionAuditRepository
 from auto_insurance.api.schemas.insurance import (
     FrequenceResponse,
     GraviteResponse,
@@ -18,34 +15,35 @@ from auto_insurance.api.schemas.insurance import (
 from auto_insurance.src.pipeline import PredictionPipeline
 
 router = APIRouter(prefix="/predict", tags=["Predictions"])
+logger = logging.getLogger(__name__)
 
 
 def _get_risk_level(frequence: float) -> str:
-    """Retourne le niveau de risque selon la fréquence prédite."""
+    """Return a risk level label based on predicted frequency."""
     if frequence < 0.05:
         return "faible"
     if frequence < 0.10:
-        return "modéré"
+        return "modere"
     if frequence < 0.20:
-        return "élevé"
-    return "très élevé"
+        return "eleve"
+    return "tres eleve"
 
 
 def _get_risk_factors(data: InsuranceInput) -> list[str]:
-    """Retourne les facteurs de risque détectés."""
+    """Return a list of simple risk factors."""
     facteurs = []
     if data.age_conducteur1 < 25:
-        facteurs.append("Conducteur jeune — risque plus élevé")
+        facteurs.append("Conducteur jeune - risque plus eleve")
     if data.din_vehicule > 150:
-        facteurs.append("Véhicule puissant — risque accru")
+        facteurs.append("Vehicule puissant - risque accru")
     if data.prix_vehicule > 30000:
-        facteurs.append("Véhicule haut de gamme — coût de réparation élevé")
+        facteurs.append("Vehicule haut de gamme - cout de reparation eleve")
     if data.anciennete_permis1 < 3:
-        facteurs.append("Permis récent — manque d'expérience")
+        facteurs.append("Permis recent - manque d'experience")
     if data.anciennete_vehicule > 10:
-        facteurs.append("Véhicule ancien — risque de panne")
+        facteurs.append("Vehicule ancien - risque de panne")
     if not facteurs:
-        facteurs.append("Profil standard — pas de facteur de risque majeur")
+        facteurs.append("Profil standard - pas de facteur de risque majeur")
     return facteurs
 
 
@@ -53,62 +51,109 @@ def _get_risk_factors(data: InsuranceInput) -> list[str]:
 def predict_frequency(
     data: InsuranceInput,
     pipeline: PredictionPipeline = Depends(get_pipeline),
+    audit_repository: PredictionAuditRepository = Depends(get_audit_repository),
 ) -> FrequenceResponse:
-    """Prédit la probabilité de sinistre (fréquence)."""
+    """Predict claim frequency."""
     try:
         frequence = pipeline.predict_frequence(data.model_dump())
-        return FrequenceResponse(frequence_predite=frequence)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur de prédiction : {e}") from e
+        response = FrequenceResponse(frequence_predite=frequence)
+        audit_repository.save_prediction(
+            endpoint="/predict/frequency",
+            request_payload=data.model_dump(),
+            response_payload=response.model_dump(),
+        )
+        logger.info("Frequency prediction served for postal code %s", data.code_postal)
+        return response
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Erreur de prediction : {exc}"
+        ) from exc
 
 
 @router.post("/severity", response_model=GraviteResponse)
 def predict_severity(
     data: InsuranceInput,
     pipeline: PredictionPipeline = Depends(get_pipeline),
+    audit_repository: PredictionAuditRepository = Depends(get_audit_repository),
 ) -> GraviteResponse:
-    """Prédit le coût moyen d'un sinistre (gravité)."""
+    """Predict claim severity."""
     try:
         gravite = pipeline.predict_gravite(data.model_dump())
-        return GraviteResponse(cout_moyen_predit=gravite)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur de prédiction : {e}") from e
+        response = GraviteResponse(cout_moyen_predit=gravite)
+        audit_repository.save_prediction(
+            endpoint="/predict/severity",
+            request_payload=data.model_dump(),
+            response_payload=response.model_dump(),
+        )
+        logger.info("Severity prediction served for vehicle %s", data.modele_vehicule)
+        return response
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Erreur de prediction : {exc}"
+        ) from exc
 
 
 @router.post("/premium", response_model=PrimeResponse)
 def predict_premium(
     data: InsuranceInput,
     pipeline: PredictionPipeline = Depends(get_pipeline),
+    audit_repository: PredictionAuditRepository = Depends(get_audit_repository),
 ) -> PrimeResponse:
-    """Calcule la prime pure = fréquence × gravité."""
+    """Compute the pure premium as frequency times severity."""
     try:
         result = pipeline.predict_prime(data.model_dump())
-        return PrimeResponse(
+        response = PrimeResponse(
             frequence_predite=result["frequence_predite"],
             cout_moyen_predit=result["cout_moyen_predit"],
             prime_pure=result["prime_pure"],
             niveau_risque=_get_risk_level(result["frequence_predite"]),
-            model_version="v1.0"
+            model_version="v1.0",
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur de prédiction : {e}") from e
+        audit_repository.save_prediction(
+            endpoint="/predict/premium",
+            request_payload=data.model_dump(),
+            response_payload=response.model_dump(),
+            niveau_risque=response.niveau_risque,
+        )
+        logger.info(
+            "Premium prediction served for %s %s with risk level %s",
+            data.marque_vehicule,
+            data.modele_vehicule,
+            response.niveau_risque,
+        )
+        return response
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Erreur de prediction : {exc}"
+        ) from exc
 
 
 @router.post("/explain", tags=["Predictions"])
 def predict_explain(
     data: InsuranceInput,
     pipeline: PredictionPipeline = Depends(get_pipeline),
+    audit_repository: PredictionAuditRepository = Depends(get_audit_repository),
 ) -> dict:
-    """Explique les facteurs qui influencent la prime calculée."""
+    """Explain the premium result with simple risk factors."""
     try:
         result = pipeline.predict_prime(data.model_dump())
-        return {
+        response = {
             "frequence_predite": result["frequence_predite"],
             "cout_moyen_predit": result["cout_moyen_predit"],
             "prime_pure": result["prime_pure"],
             "niveau_risque": _get_risk_level(result["frequence_predite"]),
             "facteurs_de_risque": _get_risk_factors(data),
-            "model_version": "v1.0"
+            "model_version": "v1.0",
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur de prédiction : {e}") from e
+        audit_repository.save_prediction(
+            endpoint="/predict/explain",
+            request_payload=data.model_dump(),
+            response_payload=response,
+            niveau_risque=response["niveau_risque"],
+        )
+        logger.info("Explain prediction served for contract type %s", data.type_contrat)
+        return response
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Erreur de prediction : {exc}"
+        ) from exc
