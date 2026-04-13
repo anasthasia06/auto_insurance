@@ -129,14 +129,14 @@ class DataPreprocessor:
         """Encode Yes/No → 1/0 et M/F → 1/0."""
         for col in self.YES_NO_COLS:
             if col in df.columns:
-                df[col] = df[col].replace(
-                    {'Yes': 1, 'No': 0, '-999': 0}
-                ).astype(float)
+                df[col] = df[col].map(
+                    {'Yes': 1.0, 'No': 0.0, '-999': 0.0}
+                ).fillna(0.0)
         for col in self.SEX_COLS:
             if col in df.columns:
-                df[col] = df[col].replace(
-                    {'M': 1, 'F': 0, '-999': 0}
-                ).astype(float)
+                df[col] = df[col].map(
+                    {'M': 1.0, 'F': 0.0, '-999': 0.0}
+                ).fillna(0.0)
         return df
 
     def _drop_high_missing(self, df: pd.DataFrame) -> pd.DataFrame:

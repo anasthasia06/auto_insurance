@@ -1,7 +1,11 @@
 """Endpoints de santé de l'API."""
 
+import logging
+
 from fastapi import APIRouter, Depends
 from auto_insurance.api.dependencies import get_pipeline
+
+logger = logging.getLogger(__name__)
 from auto_insurance.api.schemas.insurance import HealthResponse
 from auto_insurance.src.pipeline import PredictionPipeline
 
@@ -16,6 +20,7 @@ def health_check() -> HealthResponse:
     Returns:
         Statut et message de confirmation.
     """
+    logger.info("GET /health")
     return HealthResponse(status="ok", message="API opérationnelle")
 
 
@@ -29,6 +34,7 @@ def health_models(
     Returns:
         Informations sur les modèles chargés.
     """
+    logger.info("GET /health/models")
     return {
         "status": "ok",
         "models": {
