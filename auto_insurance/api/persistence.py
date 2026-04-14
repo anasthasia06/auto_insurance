@@ -7,7 +7,7 @@ import logging
 import os
 import sqlite3
 from contextlib import closing
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -69,7 +69,7 @@ class PredictionAuditRepository:
                 ) VALUES (?, ?, ?, ?, ?)
                 """,
                 (
-                    datetime.now(UTC).isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                     endpoint,
                     json.dumps(request_payload, ensure_ascii=False),
                     json.dumps(response_payload, ensure_ascii=False),
