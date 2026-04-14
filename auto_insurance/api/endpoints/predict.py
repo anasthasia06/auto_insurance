@@ -3,6 +3,8 @@
 import logging
 import time
 
+from sklearn import pipeline
+
 import shap
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -25,6 +27,29 @@ MODEL_VERSION = "v1.0"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+def clean_input(data: dict) -> dict:
+    cleaned = {}
+    for k, v in data.items():
+
+        if isinstance(v, list):
+            v = v[0]
+
+        if isinstance(v, str):
+            v = v.strip()
+
+            if v in ("", " ", "null", "None"):
+                cleaned[k] = None
+                continue
+
+            try:
+                cleaned[k] = float(v)
+                continue
+            except (ValueError, TypeError):
+                pass
+
+        cleaned[k] = v
+
+    return cleaned
 
 def _get_risk_level(frequence: float) -> str:
     """
@@ -115,7 +140,9 @@ def predict_frequency(
     """Predict claim frequency (probability) for a given insurance contract."""
     start = time.perf_counter()
     try:
-        frequence = pipeline.predict_frequence(data.model_dump())
+        payload = clean_input(data.model_dump())
+
+        frequence = pipeline.predict_frequence(payload)
         response = FrequenceResponse(frequence_predite=frequence)
         audit_repository.save_prediction(
             endpoint="/predict/frequency",
@@ -183,7 +210,9 @@ def predict_severity(
     """Predict claim severity (average cost) for a given insurance contract."""
     start = time.perf_counter()
     try:
-        gravite = pipeline.predict_gravite(data.model_dump())
+        payload = clean_input(data.model_dump())
+
+        gravite = pipeline.predict_gravite(payload)
         response = GraviteResponse(cout_moyen_predit=gravite)
         audit_repository.save_prediction(
             endpoint="/predict/severity",
@@ -245,7 +274,9 @@ def predict_premium(
     """Compute the pure premium = frequency x severity."""
     start = time.perf_counter()
     try:
-        result = pipeline.predict_prime(data.model_dump())
+        payload = clean_input(data.model_dump())
+
+        result = pipeline.predict_prime(payload)
         response = PrimeResponse(
             frequence_predite=result["frequence_predite"],
             cout_moyen_predit=result["cout_moyen_predit"],
@@ -318,7 +349,9 @@ def predict_explain(
     """Compute the pure premium and explain risk factors via SHAP."""
     start = time.perf_counter()
     try:
-        result = pipeline.predict_prime(data.model_dump())
+        payload = clean_input(data.model_dump())
+
+        result = pipeline.predict_prime(payload)
         risk_factors = _get_risk_factors(data, pipeline)
         risk_level = _get_risk_level(result["frequence_predite"])
 
