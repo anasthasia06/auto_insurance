@@ -8,6 +8,15 @@ Endpoints de prédiction pour l'assurance auto.
 
 import logging
 
+from fastapi import APIRouter, Depends
+
+from auto_insurance.api.dependencies import get_audit_repository, get_pipeline
+from auto_insurance.api.schemas.insurance import HealthResponse
+from auto_insurance.src.pipeline import PredictionPipeline
+
+logger = logging.getLogger(__name__)
+router = APIRouter()
+
 import shap
 
 from fastapi import APIRouter, Depends, HTTPException
