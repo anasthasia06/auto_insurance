@@ -19,122 +19,70 @@ MODEL_VERSION = "v1.0"
 
 # ── Input schema ─────────────────────────────────────────────────────────────
 
+from pydantic import BaseModel, Field, model_validator, field_validator
+
 class InsuranceInput(BaseModel):
-    """
-    Raw input data for a motor insurance contract.
-
-    Matches exactly the features expected by the XGBoost models,
-    before passing through the preprocessing and feature engineering pipeline.
-
-    Business validations:
-    - age_conducteur1: between 18 and 100 (Pydantic Field constraint)
-    - anciennete_permis1: coherence with age checked by model_validator
-    """
 
     # ── Contract ──────────────────────────────────────────────────────────────
-    type_contrat: str = Field(
-        ...,
-        description="Contract type (A = comprehensive, B = extended third-party, C = third-party)",
-        examples=["A"],
-    )
-    duree_contrat: float = Field(
-        ..., ge=0, description="Contract duration in months"
-    )
-    anciennete_info: float = Field(
-        ..., ge=0, description="Customer seniority in the database (years)"
-    )
-    freq_paiement: str = Field(
-        ..., description="Payment frequency (mensuel, trimestriel, annuel)"
-    )
-    utilisation: str = Field(
-        ..., description="Vehicle usage (prive, pro, mixte)"
-    )
-    code_postal: str = Field(
-        ..., description="Postal code of the main driver"
-    )
+    type_contrat: str = Field(...)
+    duree_contrat: float = Field(..., ge=0)
+    anciennete_info: float = Field(..., ge=0)
+    freq_paiement: str = Field(...)
+    utilisation: str = Field(...)
+    code_postal: str = Field(...)
 
     # ── Main driver ───────────────────────────────────────────────────────────
-    age_conducteur1: float = Field(
-        ..., ge=18, le=100, description="Age of the main driver (years)"
-    )
-    sex_conducteur1: str = Field(
-        ..., description="Gender of the main driver (M or F)"
-    )
-    anciennete_permis1: float = Field(
-        ..., ge=0, description="Driving licence seniority (years)"
-    )
+    age_conducteur1: float = Field(..., ge=18, le=100)
+    sex_conducteur1: str = Field(...)
+    anciennete_permis1: float = Field(..., ge=0)
 
     # ── Vehicle ───────────────────────────────────────────────────────────────
-    anciennete_vehicule: float = Field(
-        ..., ge=0, description="Vehicle age (years)"
-    )
-    cylindre_vehicule: float = Field(
-        ..., ge=0, description="Engine displacement (cm³)"
-    )
-    din_vehicule: float = Field(
-        ..., ge=0, description="Engine power (DIN horsepower)"
-    )
-    essence_vehicule: str = Field(
-        ..., description="Fuel type (essence, diesel, electrique, hybride)"
-    )
-    marque_vehicule: str = Field(
-        ..., description="Vehicle brand"
-    )
-    modele_vehicule: str = Field(
-        ..., description="Vehicle model"
-    )
-    fin_vente_vehicule: float = Field(
-        ..., description="Year the model was discontinued"
-    )
-    debut_vente_vehicule: float | None = Field(
-        default=None,
-        description=(
-            "Year the model was first sold (optional). "
-            "If absent, the pipeline defaults to fin_vente_vehicule - 5."
-        ),
-    )
-    vitesse_vehicule: float = Field(
-        ..., ge=0, description="Top speed of the vehicle (km/h)"
-    )
-    type_vehicule: str = Field(
-        ..., description="Vehicle category (berline, suv, citadine, break, coupe)"
-    )
-    prix_vehicule: float = Field(
-        ..., ge=0, description="Vehicle value when new (€)"
-    )
-    poids_vehicule: float = Field(
-        ..., ge=0, description="Vehicle weight (kg)"
-    )
+    anciennete_vehicule: float = Field(..., ge=0)
+    cylindre_vehicule: float = Field(..., ge=0)
+    din_vehicule: float = Field(..., ge=0)
+    essence_vehicule: str = Field(...)
+    marque_vehicule: str = Field(...)
+    modele_vehicule: str = Field(...)
+    fin_vente_vehicule: float = Field(...)
+    debut_vente_vehicule: float | None = Field(default=None)
+    vitesse_vehicule: float = Field(..., ge=0)
+    type_vehicule: str = Field(...)
+    prix_vehicule: float = Field(..., ge=0)
+    poids_vehicule: float = Field(..., ge=0)
 
-    # ── Secondary driver (optional) ───────────────────────────────────────────
-    conducteur2: str | None = Field(
-        default=None,
-        description="Secondary driver present (Yes / No)",
+    conducteur2: str | None = Field(default=None)
+
+    @field_validator(
+        "duree_contrat",
+        "anciennete_info",
+        "age_conducteur1",
+        "anciennete_permis1",
+        "anciennete_vehicule",
+        "cylindre_vehicule",
+        "din_vehicule",
+        "fin_vente_vehicule",
+        "debut_vente_vehicule",
+        "vitesse_vehicule",
+        "prix_vehicule",
+        "poids_vehicule",
+        mode="before"
     )
+    def fix_numeric_types(cls, v):
+        if isinstance(v, list):
+            v = v[0]
+        if v == "":
+            return None
+        try:
+            return float(v)
+        except:
+            return v
 
     # ── Business validation ───────────────────────────────────────────────────
     @model_validator(mode="after")
-    def check_licence_age_coherence(self) -> "InsuranceInput":
-        """
-        Verify that the computed licence-obtaining age is realistic.
-
-        The licence age is: age_conducteur1 - anciennete_permis1.
-        In France, the minimum age for a driving licence is 17 (accompanied
-        driving) or 18 (standard). We accept 16 as the lower bound to cover
-        licences obtained abroad or via accompanied driving programmes.
-
-        Raises:
-            ValueError: If the computed licence age is below 16 years.
-        """
+    def check_licence_age_coherence(self):
         licence_age = self.age_conducteur1 - self.anciennete_permis1
         if licence_age < 16:
-            raise ValueError(
-                f"Inconsistency detected: driver would have obtained their licence at "
-                f"{licence_age:.0f} years old "
-                f"(age={self.age_conducteur1:.0f}, "
-                f"licence_seniority={self.anciennete_permis1:.0f}). "
-                "Minimum legal age is 16."
-            )
+            raise ValueError("Licence incohérente")
         return self
 
     model_config = {
@@ -163,8 +111,6 @@ class InsuranceInput(BaseModel):
             }
         }
     }
-
-
 # ── Output schemas ────────────────────────────────────────────────────────────
 
 class FrequenceResponse(BaseModel):
