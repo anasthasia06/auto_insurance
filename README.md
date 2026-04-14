@@ -45,31 +45,6 @@ Configuration recommandee:
 
 Le fichier `render.yaml` fournit une configuration de base pour ce deploy.
 
-## Bonus logs et database
-
-Le projet inclut maintenant:
-
-- des logs applicatifs centralises
-- un `X-Request-ID` ajoute sur chaque reponse HTTP
-- un audit SQLite optionnel des predictions reussies
-
-Variables d'environnement utiles:
-
-- `LOG_LEVEL`: niveau de logs, par exemple `INFO` ou `DEBUG`
-- `PREDICTION_AUDIT_ENABLED`: active l'audit SQLite si valeur `true`
-- `PREDICTION_AUDIT_DB_PATH`: chemin du fichier SQLite, par defaut `data/prediction_audit.db`
-
-Endpoints bonus:
-
-- `/health/audit`: etat du stockage d'audit
-
-Exemple d'activation locale:
-
-```bash
-$env:PREDICTION_AUDIT_ENABLED="true"
-$env:PREDICTION_AUDIT_DB_PATH="data/prediction_audit.db"
-python -m uv run uvicorn auto_insurance.api.main:app --reload
-```
 
 ### Deploiement automatique avec GitHub Actions
 
