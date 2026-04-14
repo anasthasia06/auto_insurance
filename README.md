@@ -32,19 +32,7 @@ python -m uv run mypy auto_insurance/src/
 python -m uv run --with httpx pytest tests -v
 ```
 
-## Docker
 
-### Build
-
-```bash
-docker build -t auto-insurance-api .
-```
-
-### Run local
-
-```bash
-docker run --rm -p 8000:8000 auto-insurance-api
-```
 
 ## Deploy Render
 
