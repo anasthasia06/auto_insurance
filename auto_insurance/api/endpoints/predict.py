@@ -6,6 +6,10 @@ Endpoints de prédiction pour l'assurance auto.
 /predict/explain   — prime + facteurs de risque explicatifs
 """
 
+import logging
+
+import shap
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from auto_insurance.api.dependencies import get_pipeline
@@ -32,23 +36,29 @@ def _get_risk_level(frequence: float) -> str:
     return "très élevé"
 
 
-def _get_risk_factors(data: InsuranceInput) -> list[str]:
-    """Retourne les facteurs de risque détectés."""
-    facteurs = []
-    if data.age_conducteur1 < 25:
-        facteurs.append("Conducteur jeune — risque plus élevé")
-    if data.din_vehicule > 150:
-        facteurs.append("Véhicule puissant — risque accru")
-    if data.prix_vehicule > 30000:
-        facteurs.append("Véhicule haut de gamme — coût de réparation élevé")
-    if data.anciennete_permis1 < 3:
-        facteurs.append("Permis récent — manque d'expérience")
-    if data.anciennete_vehicule > 10:
-        facteurs.append("Véhicule ancien — risque de panne")
-    if not facteurs:
-        facteurs.append("Profil standard — pas de facteur de risque majeur")
-    return facteurs
+def _get_risk_factors(data: InsuranceInput, pipeline: PredictionPipeline) -> list[str]:
+    """Retourne les facteurs de risque via SHAP values."""
+    df = pipeline._build_features(data.model_dump())
+    
+    # Convertir les colonnes category en codes numériques pour SHAP
+    df_shap = df.copy()
+    for col in df_shap.select_dtypes(include="category").columns:
+        df_shap[col] = df_shap[col].cat.codes
 
+    explainer = shap.TreeExplainer(pipeline.model.model_frequence)
+    shap_values = explainer.shap_values(df_shap)
+
+    feature_names = df_shap.columns.tolist()
+    shap_importance = dict(zip(feature_names, shap_values[0]))
+
+    top_features = sorted(shap_importance.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
+
+    facteurs = []
+    for feature, value in top_features:
+        direction = "augmente" if value > 0 else "diminue"
+        facteurs.append(f"{feature} {direction} le risque")
+
+    return facteurs
 
 @router.post("/frequency", response_model=FrequenceResponse)
 def predict_frequency(
@@ -108,7 +118,7 @@ def predict_explain(
             cout_moyen_predit=result["cout_moyen_predit"],
             prime_pure=result["prime_pure"],
             niveau_risque=_get_risk_level(result["frequence_predite"]),
-            facteurs_de_risque=_get_risk_factors(data),
+            facteurs_de_risque=_get_risk_factors(data, pipeline),
             model_version="v1.0",
         )
     except Exception as e:
