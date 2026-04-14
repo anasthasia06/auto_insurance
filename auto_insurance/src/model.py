@@ -51,29 +51,12 @@ class InsuranceModel:
             self.feature_names = None
 
     def predict_frequence(self, df: pd.DataFrame) -> float:
-        """
-        Prédit la fréquence de sinistres.
-
-        Args:
-            df: DataFrame d'une ligne prêt pour la prédiction.
-
-        Returns:
-            Fréquence prédite (float).
-        """
-        return float(self.model_frequence.predict(df)[0])
+    result = self.model_frequence.predict(df)
+    return float(result.flatten()[0])
 
     def predict_gravite(self, df: pd.DataFrame) -> float:
-        """
-        Prédit le coût moyen d'un sinistre.
-
-        Args:
-            df: DataFrame d'une ligne prêt pour la prédiction.
-
-        Returns:
-            Coût moyen prédit (float).
-        """
-        return float(self.model_gravite.predict(df)[0])
-
+    result = self.model_gravite.predict(df)
+    return float(result.flatten()[0])
     def predict_prime(
         self,
         df: pd.DataFrame,
