@@ -81,3 +81,4 @@ class InsuranceModel:
     def get_feature_names(self) -> list[str] | None:
         """Return the list of features expected by the model (or None)."""
         return self.feature_names
+    
