@@ -4,7 +4,8 @@ import logging
 
 from fastapi import APIRouter, Depends
 
-from auto_insurance.api.dependencies import get_pipeline
+from auto_insurance.api.dependencies import get_audit_repository, get_pipeline
+from auto_insurance.api.persistence import PredictionAuditRepository
 from auto_insurance.api.schemas.insurance import HealthResponse
 from auto_insurance.src.pipeline import PredictionPipeline
 
@@ -39,4 +40,16 @@ def health_models(
                 "version": "v1.0",
             },
         },
+    }
+
+
+@router.get("/health/audit", tags=["Health"])
+def health_audit(
+    audit_repository: PredictionAuditRepository = Depends(get_audit_repository),
+) -> dict:
+    """Expose optional audit database status."""
+    logger.info("GET /health/audit")
+    return {
+        "status": "ok",
+        "audit": audit_repository.get_status(),
     }
