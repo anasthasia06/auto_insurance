@@ -1,10 +1,9 @@
 """Application entry point for the auto insurance FastAPI service."""
 
 import logging
-import os
 import time
-from uuid import uuid4
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
@@ -14,13 +13,9 @@ from auto_insurance.api.endpoints.health import router as health_router
 from auto_insurance.api.endpoints.predict import router as predict_router
 from auto_insurance.api.logging_utils import setup_logging
 
-# ── Logging setup ───────────────────────────────────────────────────────────
-# Must be called BEFORE any logger is created in imported modules.
-# Log level can be overridden via the LOG_LEVEL environment variable.
 setup_logging()
 logger = logging.getLogger(__name__)
 
-# ── FastAPI application ─────────────────────────────────────────────────────
 app = FastAPI(
     title="AutoAssur — Motor Insurance Pricing API",
     description=(
@@ -40,17 +35,14 @@ app.include_router(health_router)
 app.include_router(predict_router)
 
 
-# ── Request logging middleware ──────────────────────────────────────────────
 @app.middleware("http")
 async def add_request_context(request: Request, call_next) -> Response:
     """
     Attach a unique request ID to every request and log the full lifecycle.
 
-    - Reads X-Request-ID from the incoming headers if present (useful when
-      a reverse proxy or API gateway already sets it).
-    - Falls back to a freshly generated UUID.
-    - Attaches the ID to the response headers so clients can correlate logs.
-    - Logs start and completion with method, path, status code, and latency.
+    Reads X-Request-ID from incoming headers if present, otherwise
+    generates a short UUID. Attaches the ID to the response headers
+    and logs method, path, status code, and latency for every request.
     """
     request_id = request.headers.get("x-request-id", str(uuid4())[:8])
     start_time = time.perf_counter()
@@ -79,7 +71,6 @@ async def add_request_context(request: Request, call_next) -> Response:
     return response
 
 
-# ── Landing page ────────────────────────────────────────────────────────────
 _DASHBOARD = Path(__file__).parent / "dashboard.html"
 
 
