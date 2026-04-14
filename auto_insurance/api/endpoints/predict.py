@@ -64,10 +64,10 @@ def _get_risk_level(frequence: float) -> str:
     if frequence < 0.05:
         return "faible"
     if frequence < 0.10:
-        return "modere"
+        return "modéré"
     if frequence < 0.20:
-        return "eleve"
-    return "tres eleve"
+        return "élevé"
+    return "très élevé"
 
 
 def _get_risk_factors(
