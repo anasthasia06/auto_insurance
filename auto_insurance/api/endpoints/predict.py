@@ -3,7 +3,7 @@
 import logging
 import time
 
-from sklearn import pipeline
+
 
 import shap
 from fastapi import APIRouter, Depends, HTTPException
