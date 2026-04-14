@@ -9,7 +9,7 @@ and imported by all endpoints. This avoids having "v1.0" hardcoded
 in multiple places — update it here only when the model changes.
 """
 
-
+from pydantic import BaseModel, Field, model_validator, field_validator
 
 # ── Centralised model version ────────────────────────────────────────────────
 # Update this constant only when deploying a new model version.
@@ -18,8 +18,6 @@ MODEL_VERSION = "v1.0"
 
 
 # ── Input schema ─────────────────────────────────────────────────────────────
-
-from pydantic import BaseModel, Field, model_validator, field_validator
 
 class InsuranceInput(BaseModel):
 
