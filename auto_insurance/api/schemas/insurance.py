@@ -9,7 +9,7 @@ and imported by all endpoints. This avoids having "v1.0" hardcoded
 in multiple places — update it here only when the model changes.
 """
 
-from pydantic import BaseModel, Field, model_validator
+
 
 # ── Centralised model version ────────────────────────────────────────────────
 # Update this constant only when deploying a new model version.
@@ -74,7 +74,7 @@ class InsuranceInput(BaseModel):
             return None
         try:
             return float(v)
-        except:
+        except Exception:
             return v
 
     # ── Business validation ───────────────────────────────────────────────────
