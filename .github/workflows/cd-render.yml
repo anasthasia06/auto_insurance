@@ -2,7 +2,7 @@ name: CD Render
 
 on:
   workflow_run:
-    workflows: ["test-and-lint"]
+    workflows: ["CI pipeline"]
     types: [completed]
     branches: [main, wissal]
   workflow_dispatch:
