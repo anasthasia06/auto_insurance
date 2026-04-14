@@ -1,14 +1,26 @@
-"""
-Gestion du chargement des modèles pour l'injection de dépendances FastAPI.
-Les modèles sont chargés une seule fois au démarrage de l'application.
-"""
+"""FastAPI dependency providers for the application."""
 
-from functools import lru_cache
-
+from auto_insurance.api.persistence import (
+    PredictionAuditRepository,
+    build_audit_repository,
+)
 from auto_insurance.src.pipeline import PredictionPipeline
 
+_pipeline: PredictionPipeline | None = None
+_audit_repository: PredictionAuditRepository | None = None
 
-@lru_cache(maxsize=1)
+
 def get_pipeline() -> PredictionPipeline:
-    """Retourne l'instance du pipeline (singleton chargé une seule fois)."""
-    return PredictionPipeline()
+    """Return the prediction pipeline singleton."""
+    global _pipeline
+    if _pipeline is None:
+        _pipeline = PredictionPipeline()
+    return _pipeline
+
+
+def get_audit_repository() -> PredictionAuditRepository:
+    """Return the audit repository singleton."""
+    global _audit_repository
+    if _audit_repository is None:
+        _audit_repository = build_audit_repository()
+    return _audit_repository

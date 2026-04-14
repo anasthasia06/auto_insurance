@@ -4,9 +4,6 @@ Couvre : health check, predict/frequency, predict/severity, predict/premium,
          et les cas d'erreur (champs manquants, types invalides).
 """
 
-from urllib import response
-
-import pytest
 from fastapi.testclient import TestClient
 
 from auto_insurance.api.main import app
@@ -56,6 +53,18 @@ class TestHealth:
     def test_health_status_ok(self):
         response = client.get("/health")
         assert response.json()["status"] == "ok"
+
+    def test_health_audit_endpoint_structure(self):
+        response = client.get("/health/audit")
+        body = response.json()
+        assert response.status_code == 200
+        assert body["status"] == "ok"
+        assert "audit" in body
+        assert "enabled" in body["audit"]
+
+    def test_request_id_header_present(self):
+        response = client.get("/health")
+        assert "X-Request-ID" in response.headers
 
 
 # ──────────────────────────────────────────────

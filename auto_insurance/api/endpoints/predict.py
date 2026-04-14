@@ -1,5 +1,7 @@
 """Prediction endpoints for the auto insurance API."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from auto_insurance.api.dependencies import get_audit_repository, get_pipeline
@@ -13,6 +15,7 @@ from auto_insurance.api.schemas.insurance import (
 from auto_insurance.src.pipeline import PredictionPipeline
 
 router = APIRouter(prefix="/predict", tags=["Predictions"])
+logger = logging.getLogger(__name__)
 
 
 def _get_risk_level(frequence: float) -> str:
@@ -59,11 +62,11 @@ def predict_frequency(
             request_payload=data.model_dump(),
             response_payload=response.model_dump(),
         )
+        logger.info("Frequency prediction served for postal code %s", data.code_postal)
         return response
     except Exception as exc:
         raise HTTPException(
-            status_code=500,
-            detail=f"Erreur de prediction : {exc}",
+            status_code=500, detail=f"Erreur de prediction : {exc}"
         ) from exc
 
 
@@ -82,11 +85,11 @@ def predict_severity(
             request_payload=data.model_dump(),
             response_payload=response.model_dump(),
         )
+        logger.info("Severity prediction served for vehicle %s", data.modele_vehicule)
         return response
     except Exception as exc:
         raise HTTPException(
-            status_code=500,
-            detail=f"Erreur de prediction : {exc}",
+            status_code=500, detail=f"Erreur de prediction : {exc}"
         ) from exc
 
 
@@ -112,11 +115,16 @@ def predict_premium(
             response_payload=response.model_dump(),
             niveau_risque=response.niveau_risque,
         )
+        logger.info(
+            "Premium prediction served for %s %s with risk level %s",
+            data.marque_vehicule,
+            data.modele_vehicule,
+            response.niveau_risque,
+        )
         return response
     except Exception as exc:
         raise HTTPException(
-            status_code=500,
-            detail=f"Erreur de prediction : {exc}",
+            status_code=500, detail=f"Erreur de prediction : {exc}"
         ) from exc
 
 
@@ -143,9 +151,9 @@ def predict_explain(
             response_payload=response,
             niveau_risque=response["niveau_risque"],
         )
+        logger.info("Explain prediction served for contract type %s", data.type_contrat)
         return response
     except Exception as exc:
         raise HTTPException(
-            status_code=500,
-            detail=f"Erreur de prediction : {exc}",
+            status_code=500, detail=f"Erreur de prediction : {exc}"
         ) from exc
