@@ -1,54 +1,139 @@
 """
-Schémas Pydantic pour l'API d'assurance auto.
-Définit les modèles d'entrée (contrat) et de sortie (prédictions).
+Pydantic schemas for the AutoAssur motor insurance pricing API.
+
+Defines input (InsuranceInput) and output schemas
+(FrequenceResponse, GraviteResponse, PrimeResponse, ExplainResponse).
+
+The model version is stored in the MODEL_VERSION constant defined here
+and imported by all endpoints. This avoids having "v1.0" hardcoded
+in multiple places — update it here only when the model changes.
 """
 
 from pydantic import BaseModel, Field, model_validator
 
+# ── Centralised model version ────────────────────────────────────────────────
+# Update this constant only when deploying a new model version.
+# Imported by predict.py to populate the model_version field in all responses.
+MODEL_VERSION = "v1.0"
+
+
+# ── Input schema ─────────────────────────────────────────────────────────────
 
 class InsuranceInput(BaseModel):
     """
-    Données brutes d'un contrat d'assurance auto.
-    Correspond exactement aux features attendues par les modèles XGBoost.
+    Raw input data for a motor insurance contract.
+
+    Matches exactly the features expected by the XGBoost models,
+    before passing through the preprocessing and feature engineering pipeline.
+
+    Business validations:
+    - age_conducteur1: between 18 and 100 (Pydantic Field constraint)
+    - anciennete_permis1: coherence with age checked by model_validator
     """
 
-    # Contrat
-    type_contrat: str = Field(..., description="Type de contrat")
-    duree_contrat: float = Field(..., ge=0, description="Durée du contrat (mois)")
-    anciennete_info: float = Field(..., ge=0, description="Ancienneté client (années)")
-    freq_paiement: str = Field(..., description="Fréquence de paiement")
-    utilisation: str = Field(..., description="Utilisation du véhicule")
-    code_postal: str = Field(..., description="Code postal du conducteur")
+    # ── Contract ──────────────────────────────────────────────────────────────
+    type_contrat: str = Field(
+        ...,
+        description="Contract type (A = comprehensive, B = extended third-party, C = third-party)",
+        examples=["A"],
+    )
+    duree_contrat: float = Field(
+        ..., ge=0, description="Contract duration in months"
+    )
+    anciennete_info: float = Field(
+        ..., ge=0, description="Customer seniority in the database (years)"
+    )
+    freq_paiement: str = Field(
+        ..., description="Payment frequency (mensuel, trimestriel, annuel)"
+    )
+    utilisation: str = Field(
+        ..., description="Vehicle usage (prive, pro, mixte)"
+    )
+    code_postal: str = Field(
+        ..., description="Postal code of the main driver"
+    )
 
-    # Conducteur principal
-    age_conducteur1: float = Field(..., ge=18, le=100, description="Âge du conducteur principal")
-    sex_conducteur1: str = Field(..., description="Sexe du conducteur : M ou F")
-    anciennete_permis1: float = Field(..., ge=0, description="Ancienneté du permis (années)")
+    # ── Main driver ───────────────────────────────────────────────────────────
+    age_conducteur1: float = Field(
+        ..., ge=18, le=100, description="Age of the main driver (years)"
+    )
+    sex_conducteur1: str = Field(
+        ..., description="Gender of the main driver (M or F)"
+    )
+    anciennete_permis1: float = Field(
+        ..., ge=0, description="Driving licence seniority (years)"
+    )
 
-    # Véhicule
-    anciennete_vehicule: float = Field(..., ge=0, description="Ancienneté du véhicule (années)")
-    cylindre_vehicule: float = Field(..., ge=0, description="Cylindrée du véhicule")
-    din_vehicule: float = Field(..., ge=0, description="Puissance du véhicule (DIN)")
-    essence_vehicule: str = Field(..., description="Type de carburant")
-    marque_vehicule: str = Field(..., description="Marque du véhicule")
-    modele_vehicule: str = Field(..., description="Modèle du véhicule")
-    fin_vente_vehicule: float = Field(..., description="Année de fin de commercialisation")
+    # ── Vehicle ───────────────────────────────────────────────────────────────
+    anciennete_vehicule: float = Field(
+        ..., ge=0, description="Vehicle age (years)"
+    )
+    cylindre_vehicule: float = Field(
+        ..., ge=0, description="Engine displacement (cm³)"
+    )
+    din_vehicule: float = Field(
+        ..., ge=0, description="Engine power (DIN horsepower)"
+    )
+    essence_vehicule: str = Field(
+        ..., description="Fuel type (essence, diesel, electrique, hybride)"
+    )
+    marque_vehicule: str = Field(
+        ..., description="Vehicle brand"
+    )
+    modele_vehicule: str = Field(
+        ..., description="Vehicle model"
+    )
+    fin_vente_vehicule: float = Field(
+        ..., description="Year the model was discontinued"
+    )
     debut_vente_vehicule: float | None = Field(
         default=None,
-        description="Année de début de commercialisation (optionnel — fallback : fin - 5 ans)",
+        description=(
+            "Year the model was first sold (optional). "
+            "If absent, the pipeline defaults to fin_vente_vehicule - 5."
+        ),
     )
-    vitesse_vehicule: float = Field(..., ge=0, description="Vitesse max du véhicule (km/h)")
-    type_vehicule: str = Field(..., description="Type de véhicule")
-    prix_vehicule: float = Field(..., ge=0, description="Prix du véhicule (€)")
-    poids_vehicule: float = Field(..., ge=0, description="Poids du véhicule (kg)")
+    vitesse_vehicule: float = Field(
+        ..., ge=0, description="Top speed of the vehicle (km/h)"
+    )
+    type_vehicule: str = Field(
+        ..., description="Vehicle category (berline, suv, citadine, break, coupe)"
+    )
+    prix_vehicule: float = Field(
+        ..., ge=0, description="Vehicle value when new (€)"
+    )
+    poids_vehicule: float = Field(
+        ..., ge=0, description="Vehicle weight (kg)"
+    )
 
+    # ── Secondary driver (optional) ───────────────────────────────────────────
+    conducteur2: str | None = Field(
+        default=None,
+        description="Secondary driver present (Yes / No)",
+    )
+
+    # ── Business validation ───────────────────────────────────────────────────
     @model_validator(mode="after")
-    def check_age_permis_coherence(self):
-        """Vérifie que l'âge d'obtention du permis est réaliste."""
-        age_obtention = self.age_conducteur1 - self.anciennete_permis1
-        if age_obtention < 16:
+    def check_licence_age_coherence(self) -> "InsuranceInput":
+        """
+        Verify that the computed licence-obtaining age is realistic.
+
+        The licence age is: age_conducteur1 - anciennete_permis1.
+        In France, the minimum age for a driving licence is 17 (accompanied
+        driving) or 18 (standard). We accept 16 as the lower bound to cover
+        licences obtained abroad or via accompanied driving programmes.
+
+        Raises:
+            ValueError: If the computed licence age is below 16 years.
+        """
+        licence_age = self.age_conducteur1 - self.anciennete_permis1
+        if licence_age < 16:
             raise ValueError(
-                f"Incohérence détectée : permis obtenu à {age_obtention:.0f} ans — impossible."
+                f"Inconsistency detected: driver would have obtained their licence at "
+                f"{licence_age:.0f} years old "
+                f"(age={self.age_conducteur1:.0f}, "
+                f"licence_seniority={self.anciennete_permis1:.0f}). "
+                "Minimum legal age is 16."
             )
         return self
 
@@ -80,39 +165,86 @@ class InsuranceInput(BaseModel):
     }
 
 
+# ── Output schemas ────────────────────────────────────────────────────────────
+
 class FrequenceResponse(BaseModel):
-    """Réponse du modèle de fréquence."""
-    frequence_predite: float = Field(..., description="Probabilité de sinistre prédite")
+    """Response schema for the frequency model."""
+    frequence_predite: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Predicted claim probability, clamped between 0 and 1",
+    )
 
 
 class GraviteResponse(BaseModel):
-    """Réponse du modèle de gravité."""
-    cout_moyen_predit: float = Field(..., description="Coût moyen d'un sinistre prédit (€)")
+    """Response schema for the severity model."""
+    cout_moyen_predit: float = Field(
+        ...,
+        ge=0.0,
+        description="Predicted average claim cost (€)",
+    )
 
 
 class PrimeResponse(BaseModel):
-    """Réponse complète : fréquence × gravité = prime pure."""
-    frequence_predite: float = Field(..., description="Probabilité de sinistre prédite")
-    cout_moyen_predit: float = Field(..., description="Coût moyen d'un sinistre prédit (€)")
-    prime_pure: float = Field(..., description="Prime pure = fréquence × gravité (€)")
+    """
+    Full response: pure premium = frequency x severity.
+
+    The model_version field is populated from the MODEL_VERSION constant.
+    It must never be hardcoded directly in endpoint handlers.
+    """
+    frequence_predite: float = Field(
+        ..., description="Predicted claim probability"
+    )
+    cout_moyen_predit: float = Field(
+        ..., description="Predicted average claim cost (€)"
+    )
+    prime_pure: float = Field(
+        ..., description="Pure premium = frequency x severity (€)"
+    )
     niveau_risque: str = Field(
         ...,
-        description="Niveau de risque : faible, modéré, élevé, très élevé"
+        description="Risk level: faible | modéré | élevé | très élevé",
     )
-    model_version: str = Field(default="v1.0", description="Version du modèle utilisé")
+    model_version: str = Field(
+        default=MODEL_VERSION,
+        description="Version of the XGBoost models used",
+    )
 
 
 class ExplainResponse(BaseModel):
-    """Réponse enrichie : prime pure + facteurs de risque explicatifs."""
-    frequence_predite: float = Field(..., description="Probabilité de sinistre prédite")
-    cout_moyen_predit: float = Field(..., description="Coût moyen d'un sinistre prédit (€)")
-    prime_pure: float = Field(..., description="Prime pure = fréquence × gravité (€)")
-    niveau_risque: str = Field(..., description="Niveau de risque : faible, modéré, élevé, très élevé")
-    facteurs_de_risque: list[str] = Field(..., description="Facteurs de risque détectés")
-    model_version: str = Field(default="v1.0", description="Version du modèle utilisé")
+    """
+    Enriched response: pure premium + top risk factors (SHAP).
+
+    Addresses the GDPR Article 22 requirement for explainability
+    in automated decision-making systems.
+    """
+    frequence_predite: float = Field(
+        ..., description="Predicted claim probability"
+    )
+    cout_moyen_predit: float = Field(
+        ..., description="Predicted average claim cost (€)"
+    )
+    prime_pure: float = Field(
+        ..., description="Pure premium = frequency x severity (€)"
+    )
+    niveau_risque: str = Field(
+        ..., description="Risk level: faible | modéré | élevé | très élevé"
+    )
+    facteurs_de_risque: list[str] = Field(
+        ...,
+        description=(
+            "Top 3 most influential risk factors, "
+            "computed via SHAP TreeExplainer on the frequency model"
+        ),
+    )
+    model_version: str = Field(
+        default=MODEL_VERSION,
+        description="Version of the XGBoost models used",
+    )
 
 
 class HealthResponse(BaseModel):
-    """Réponse du endpoint de santé."""
-    status: str
-    message: str
+    """Response schema for the health check endpoint."""
+    status: str = Field(..., description="API status (ok | degraded | down)")
+    message: str = Field(..., description="Descriptive status message")
